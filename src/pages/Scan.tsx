@@ -109,8 +109,15 @@ const Scan = () => {
           type="file"
           accept="image/*"
           capture="environment"
-          className="hidden"
           onChange={handleCapture}
+          style={{
+            position: 'fixed',
+            top: '-100px',
+            left: '-100px',
+            width: '1px',
+            height: '1px',
+            opacity: 0
+          }}
         />
 
         {error && (
