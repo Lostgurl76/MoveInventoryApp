@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Index from "./pages/Index";
 import Pack from "./pages/Pack";
+import Scan from "./pages/Scan";
 import ItemsByBox from "./pages/ItemsByBox";
 import FindItem from "./pages/FindItem";
 import AllBoxes from "./pages/AllBoxes";
@@ -22,6 +23,7 @@ const App = () => (
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/pack" element={<Pack />} />
+          <Route path="/scan" element={<Scan />} />
           <Route path="/items-by-box" element={<ItemsByBox />} />
           <Route path="/find-item" element={<FindItem />} />
           <Route path="/all-boxes" element={<AllBoxes />} />

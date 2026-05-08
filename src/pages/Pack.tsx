@@ -40,19 +40,31 @@ const Pack = () => {
 
   // Persistence & Resume
   useEffect(() => {
-    const saved = localStorage.getItem('active_box_session');
-    if (saved) {
-      const parsed: ActiveBoxSession = JSON.parse(saved);
-      setSession(parsed);
-      
-      if (parsed.label_status === 'PRINTED_CONFIRMED') setAppState('ACTIVE_BOX_ADDING_ITEMS');
-      else if (parsed.label_status === 'SKIPPED') setAppState('ACTIVE_BOX_ADDING_ITEMS');
-      else setAppState('ACTIVE_BOX_LABEL_PENDING');
-      
-      fetchRecentItems(parsed.id);
-    } else {
-      fetchRecentBoxes();
-    }
+    const resumeSession = async () => {
+      const saved = localStorage.getItem('active_box_session');
+      if (saved) {
+        const parsed: ActiveBoxSession = JSON.parse(saved);
+        
+        // Sync real count from DB
+        const { count } = await supabase
+          .from('items')
+          .select('*', { count: 'exact', head: true })
+          .eq('box_id', parsed.id);
+
+        if (count !== null) parsed.item_count = count;
+        
+        setSession(parsed);
+        
+        if (parsed.label_status === 'PRINTED_CONFIRMED') setAppState('ACTIVE_BOX_ADDING_ITEMS');
+        else if (parsed.label_status === 'SKIPPED') setAppState('ACTIVE_BOX_ADDING_ITEMS');
+        else setAppState('ACTIVE_BOX_LABEL_PENDING');
+        
+        fetchRecentItems(parsed.id);
+      } else {
+        fetchRecentBoxes();
+      }
+    };
+    resumeSession();
   }, []);
 
   useEffect(() => {
@@ -120,7 +132,7 @@ const Pack = () => {
       setAppState('ACTIVE_BOX_LABEL_PENDING');
       showSuccess(`Box #${box.box_number} created!`);
     } catch (err) {
-      showError('Failed to createbox');
+      showError('Failed to create box');
     } finally {
       setLoading(false);
     }

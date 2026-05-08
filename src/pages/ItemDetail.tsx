@@ -1,17 +1,23 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Layout } from '@/components/Layout';
 import { supabase } from '@/lib/supabase';
 import { Item, Box, ItemType } from '@/types/inventory';
 import { showSuccess, showError } from '@/utils/toast';
-import { Trash2, Save, Package, MapPin, Home, Tag, DollarSign, Hash, FileText } from 'lucide-react';
+import { Trash2, Save, Package, MapPin, Home, Tag, DollarSign, Hash, FileText, Camera, Loader2 } from 'lucide-react';
+import { uploadItemImage } from '@/utils/storage';
+import { cn } from '@/lib/utils';
 
 const ItemDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [item, setItem] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
+
+  const itemTypes: ItemType[] = ['Cleaning', 'Clothing', 'Cookware', 'Crafts', 'Decor', 'Electronics', 'Food', 'Furniture', 'Jewelry', 'Keepsakes', 'Misc.', 'Puppers', 'Soft Goods', 'Toiletries', 'Utility'];
 
   useEffect(() => {
     const fetchItem = async () => {
@@ -26,6 +32,21 @@ const ItemDetail = () => {
     fetchItem();
   }, [id]);
 
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploading(true);
+    const url = await uploadItemImage(file);
+    if (url) {
+      setItem({ ...item, image: url });
+      showSuccess('Photo uploaded');
+    } else {
+      showError('Upload failed');
+    }
+    setUploading(false);
+  };
+
   const handleSave = async () => {
     setSaving(true);
     try {
@@ -38,7 +59,8 @@ const ItemDetail = () => {
           description: item.description,
           serial_number: item.serial_number,
           est_value: item.est_value,
-          item_notes: item.item_notes
+          item_notes: item.item_notes,
+          image: item.image
         })
         .eq('item_id', id);
       if (error) throw error;
@@ -68,7 +90,7 @@ const ItemDetail = () => {
     <Layout title="Item Details" showBack>
       <div className="space-y-6">
         {/* Image / Placeholder */}
-        <div className="aspect-square bg-white rounded-[22px] shadow-[0_12px_32px_rgba(31,20,70,0.12)] overflow-hidden flex items-center justify-center">
+        <div className="relative aspect-square bg-white rounded-[22px] shadow-[0_12px_32px_rgba(31,20,70,0.12)] overflow-hidden flex items-center justify-center">
           {item.image ? (
             <img src={item.image} className="w-full h-full object-cover" alt="" />
           ) : (
@@ -77,6 +99,21 @@ const ItemDetail = () => {
               <p className="text-[13px] text-[#8B849E]">No photo added</p>
             </div>
           )}
+          
+          <input 
+            type="file" 
+            accept="image/*" 
+            className="hidden" 
+            ref={fileInputRef}
+            onChange={handleImageUpload}
+          />
+          <button 
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploading}
+            className="absolute bottom-4 right-4 w-12 h-12 bg-[#6D4CFF] text-white rounded-full shadow-lg flex items-center justify-center active:scale-90 transition-transform"
+          >
+            {uploading ? <Loader2 className="animate-spin" size={20} /> : <Camera size={20} />}
+          </button>
         </div>
 
         {/* Main Info */}
@@ -105,9 +142,17 @@ const ItemDetail = () => {
                 <div className="w-10 h-10 rounded-full bg-[#DDFBF5] flex items-center justify-center text-[#14B8A6]">
                   <Tag size={20} />
                 </div>
-                <div>
+                <div className="flex-1">
                   <p className="text-[11px] text-[#8B849E]">Type</p>
-                  <p className="font-bold text-[#17142A]">{item.item_type}</p>
+                  <select 
+                    value={item.item_type}
+                    onChange={e => setItem({ ...item, item_type: e.target.value as ItemType })}
+                    className="font-bold text-[#17142A] bg-transparent outline-none w-full appearance-none"
+                  >
+                    {itemTypes.map(t => (
+                      <option key={t} value={t}>{t}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
               <div className="flex items-center gap-3">

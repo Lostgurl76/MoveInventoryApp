@@ -20,7 +20,7 @@ const AllBoxes = () => {
       setLoading(true);
       const { data } = await supabase
         .from('boxes')
-        .select('*, items(count)')
+        .select('*, items(item_id, count)')
         .order('box_number', { ascending: false });
       
       if (data) {

@@ -3,7 +3,7 @@ import { Layout } from '@/components/Layout';
 import { supabase } from '@/lib/supabase';
 import { Location } from '@/types/inventory';
 import { LocationBadge, getLocationAccent } from '@/components/LocationBadge';
-import { Package, Search, Box as BoxIcon, Plus } from 'lucide-react';
+import { Package, Search, Box as BoxIcon, Plus, Camera } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 
@@ -55,24 +55,30 @@ const Index = () => {
         </div>
 
         {/* Quick Actions */}
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-4 gap-3">
           <Link to="/pack" className="flex flex-col items-center gap-2 p-4 bg-white rounded-[18px] shadow-[0_6px_18px_rgba(31,20,70,0.08)] active:scale-95 transition-transform">
-            <div className="w-12 h-12 rounded-full bg-[#EEE9FF] flex items-center justify-center text-[#6D4CFF]">
-              <Plus size={24} />
+            <div className="w-10 h-10 rounded-full bg-[#EEE9FF] flex items-center justify-center text-[#6D4CFF]">
+              <Plus size={20} />
             </div>
-            <span className="text-[13px] font-semibold text-[#4B2FBF]">Pack</span>
+            <span className="text-[11px] font-semibold text-[#4B2FBF]">Pack</span>
+          </Link>
+          <Link to="/scan" className="flex flex-col items-center gap-2 p-4 bg-white rounded-[18px] shadow-[0_6px_18px_rgba(31,20,70,0.08)] active:scale-95 transition-transform">
+            <div className="w-10 h-10 rounded-full bg-[#F1EFF8] flex items-center justify-center text-[#6D4CFF]">
+              <Camera size={20} />
+            </div>
+            <span className="text-[11px] font-semibold text-[#4B2FBF]">Scan</span>
           </Link>
           <Link to="/find-item" className="flex flex-col items-center gap-2 p-4 bg-white rounded-[18px] shadow-[0_6px_18px_rgba(31,20,70,0.08)] active:scale-95 transition-transform">
-            <div className="w-12 h-12 rounded-full bg-[#DDFBF5] flex items-center justify-center text-[#14B8A6]">
-              <Search size={24} />
+            <div className="w-10 h-10 rounded-full bg-[#DDFBF5] flex items-center justify-center text-[#14B8A6]">
+              <Search size={20} />
             </div>
-            <span className="text-[13px] font-semibold text-[#0F766E]">Find</span>
+            <span className="text-[11px] font-semibold text-[#0F766E]">Find</span>
           </Link>
           <Link to="/all-boxes" className="flex flex-col items-center gap-2 p-4 bg-white rounded-[18px] shadow-[0_6px_18px_rgba(31,20,70,0.08)] active:scale-95 transition-transform">
-            <div className="w-12 h-12 rounded-full bg-[#FFE4E6] flex items-center justify-center text-[#F43F5E]">
-              <BoxIcon size={24} />
+            <div className="w-10 h-10 rounded-full bg-[#FFE4E6] flex items-center justify-center text-[#F43F5E]">
+              <BoxIcon size={20} />
             </div>
-            <span className="text-[13px] font-semibold text-[#9F1239]">Boxes</span>
+            <span className="text-[11px] font-semibold text-[#9F1239]">Boxes</span>
           </Link>
         </div>
 
@@ -83,7 +89,7 @@ const Index = () => {
             {(Object.entries(stats.byLocation) as [Location, { boxes: number, items: number }][]).map(([loc, data]) => (
               <Link 
                 key={loc}
-                to={`/all-boxes?location=${loc}`}
+                to={`/all-boxes?location=${encodeURIComponent(loc)}`}
                 className="block active:scale-[0.98] transition-transform"
               >
                 <motion.div 
