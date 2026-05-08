@@ -1,11 +1,12 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { Package, Search, Box as BoxIcon, Home } from 'lucide-react';
+import { Package, Search, Box as BoxIcon, Home, ScanLine } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const BottomNav = () => {
   const navItems = [
     { to: '/pack', icon: Package, label: 'Pack' },
+    { to: '/scan', icon: ScanLine, label: 'Scan' },
     { to: '/find-item', icon: Search, label: 'Find' },
     { to: '/all-boxes', icon: BoxIcon, label: 'Boxes' },
     { to: '/', icon: Home, label: 'Home' },
