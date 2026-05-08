@@ -1,6 +1,6 @@
 export type Location = 'Pod' | 'Mae Car' | 'Ant Car' | 'Unassigned';
 export type Room = 'Bathroom' | 'Bedroom' | 'Dining' | 'Garage' | 'General' | 'Hobby' | 'Living Room' | 'Kitchen' | 'Office' | 'Pantry' | 'Patio' | 'Puppers' | 'Storage';
-export type ItemType = 'Clothing' | 'Kitchenware' | 'Cookware' | 'Electronics' | 'Books' | 'Furniture' | 'Bedding' | 'Tools' | 'Bathroom' | 'Documents' | 'Décor' | 'Art' | 'Jewelry' | 'Toys' | 'Sports Equipment' | 'Food' | 'Cleaning Supplies' | 'Other';
+export type ItemType = 'Cleaning' | 'Clothing' | 'Cookware' | 'Crafts' | 'Decor' | 'Electronics' | 'Food' | 'Furniture' | 'Jewelry' | 'Keepsakes' | 'Misc.' | 'Puppers' | 'Soft Goods' | 'Toiletries' | 'Utility';
 
 export type LabelStatus = 'NOT_PRINTED' | 'COPIED' | 'SHARED' | 'PRINTED_CONFIRMED' | 'SKIPPED';
 

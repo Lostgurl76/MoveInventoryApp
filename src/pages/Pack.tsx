@@ -30,7 +30,7 @@ const Pack = () => {
   const [itemForm, setItemForm] = useState({
     item_name: '',
     count: 1,
-    item_type: 'Other' as ItemType,
+    item_type: 'Misc.' as ItemType,
     description: '',
     serial_number: '',
     est_value: '',
@@ -120,7 +120,7 @@ const Pack = () => {
       setAppState('ACTIVE_BOX_LABEL_PENDING');
       showSuccess(`Box #${box.box_number} created!`);
     } catch (err) {
-      showError('Failed to create box');
+      showError('Failed to createbox');
     } finally {
       setLoading(false);
     }
@@ -451,7 +451,7 @@ const Pack = () => {
                       onChange={e => setItemForm({ ...itemForm, item_type: e.target.value as ItemType })}
                       className="w-full h-12 px-3 rounded-[12px] border border-[#E6E0F0] bg-white outline-none"
                     >
-                      {['Clothing', 'Kitchenware', 'Cookware', 'Electronics', 'Books', 'Furniture', 'Bedding', 'Tools', 'Bathroom', 'Documents', 'Décor', 'Art', 'Jewelry', 'Toys', 'Sports Equipment', 'Food', 'Cleaning Supplies', 'Other'].map(t => (
+                      {['Cleaning', 'Clothing', 'Cookware', 'Crafts', 'Decor', 'Electronics', 'Food', 'Furniture', 'Jewelry', 'Keepsakes', 'Misc.', 'Puppers', 'Soft Goods', 'Toiletries', 'Utility'].map(t => (
                         <option key={t} value={t}>{t}</option>
                       ))}
                     </select>

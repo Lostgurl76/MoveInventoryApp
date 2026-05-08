@@ -70,7 +70,7 @@ const FindItem = () => {
             ))}
           </div>
           <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
-            {['Clothing', 'Kitchenware', 'Cookware', 'Electronics', 'Books', 'Furniture', 'Bedding', 'Tools', 'Bathroom', 'Documents', 'Décor', 'Art', 'Jewelry', 'Toys', 'Sports Equipment', 'Food', 'Cleaning Supplies', 'Other'].map(type => (
+            {['Cleaning', 'Clothing', 'Cookware', 'Crafts', 'Decor', 'Electronics', 'Food', 'Furniture', 'Jewelry', 'Keepsakes', 'Misc.', 'Puppers', 'Soft Goods', 'Toiletries', 'Utility'].map(type => (
               <button
                 key={type}
                 onClick={() => setFilters(f => ({ ...f, item_type: f.item_type === type ? '' : type as ItemType }))}
