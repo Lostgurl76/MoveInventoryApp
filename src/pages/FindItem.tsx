@@ -70,7 +70,7 @@ const FindItem = () => {
             ))}
           </div>
           <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
-            {['Clothing', 'Kitchenware', 'Electronics', 'Books', 'Furniture', 'Other'].map(type => (
+            {['Clothing', 'Kitchenware', 'Cookware', 'Electronics', 'Books', 'Furniture', 'Bedding', 'Tools', 'Bathroom', 'Documents', 'Décor', 'Art', 'Jewelry', 'Toys', 'Sports Equipment', 'Food', 'Cleaning Supplies', 'Other'].map(type => (
               <button
                 key={type}
                 onClick={() => setFilters(f => ({ ...f, item_type: f.item_type === type ? '' : type as ItemType }))}
@@ -80,6 +80,20 @@ const FindItem = () => {
                 )}
               >
                 {type}
+              </button>
+            ))}
+          </div>
+          <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
+            {['Kitchen', 'Living Room', 'Dining Room', 'Bedroom', 'Primary Bedroom', 'Bathroom', 'Primary Bathroom', 'Office', 'Garage', 'Storage', 'Laundry', 'Entryway', 'Other'].map(room => (
+              <button
+                key={room}
+                onClick={() => setFilters(f => ({ ...f, room: f.room === room ? '' : room as Room }))}
+                className={cn(
+                  "px-4 py-2 rounded-full text-[13px] font-semibold whitespace-nowrap transition-colors",
+                  filters.room === room ? "bg-[#F59E0B] text-white" : "bg-white text-[#5F5A72] shadow-sm"
+                )}
+              >
+                {room}
               </button>
             ))}
           </div>

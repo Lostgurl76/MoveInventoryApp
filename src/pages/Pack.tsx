@@ -45,7 +45,7 @@ const Pack = () => {
       const parsed: ActiveBoxSession = JSON.parse(saved);
       setSession(parsed);
       
-      if (parsed.label_status === 'PRINTED_CONFIRMED') setAppState('ACTIVE_BOX_ADDING_ITEMS');
+      if (parsed.label_status === 'PRINTED_CONFIRMED') setAppState= 'ACTIVE_BOX_ADDING_ITEMS');
       else if (parsed.label_status === 'SKIPPED') setAppState('ACTIVE_BOX_ADDING_ITEMS');
       else setAppState('ACTIVE_BOX_LABEL_PENDING');
       
@@ -270,7 +270,7 @@ const Pack = () => {
                     className="w-full h-12 px-4 rounded-[12px] border border-[#E6E0F0] focus:border-[#6D4CFF] focus:ring-4 focus:ring-[#6D4CFF]/10 outline-none appearance-none bg-white"
                   >
                     <option value="">Select Room</option>
-                    {['Kitchen', 'Living Room', 'Bedroom', 'Bathroom', 'Office', 'Garage', 'Other'].map(r => (
+                    {['Kitchen', 'Living Room', 'Dining Room', 'Bedroom', 'Primary Bedroom', 'Bathroom', 'Primary Bathroom', 'Office', 'Garage', 'Storage', 'Laundry', 'Entryway', 'Other'].map(r => (
                       <option key={r} value={r}>{r}</option>
                     ))}
                   </select>
@@ -451,7 +451,7 @@ const Pack = () => {
                       onChange={e => setItemForm({ ...itemForm, item_type: e.target.value as ItemType })}
                       className="w-full h-12 px-3 rounded-[12px] border border-[#E6E0F0] bg-white outline-none"
                     >
-                      {['Clothing', 'Kitchenware', 'Electronics', 'Books', 'Furniture', 'Bedding', 'Tools', 'Bathroom', 'Documents', 'Other'].map(t => (
+                      {['Clothing', 'Kitchenware', 'Cookware', 'Electronics', 'Books', 'Furniture', 'Bedding', 'Tools', 'Bathroom', 'Documents', 'Décor', 'Art', 'Jewelry', 'Toys', 'Sports Equipment', 'Food', 'Cleaning Supplies', 'Other'].map(t => (
                         <option key={t} value={t}>{t}</option>
                       ))}
                     </select>
