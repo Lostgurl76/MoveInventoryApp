@@ -73,6 +73,7 @@ const AllBoxes = () => {
                     <LocationBadge location={box.location} />
                   </div>
                   <p className="text-[15px] font-semibold text-[#5F5A72]">{box.room}</p>
+                  {box.box_label && <p className="text-[12px] text-[#8B849E] italic mt-0.5">{box.box_label}</p>}
                   <div className="flex items-center gap-1.5 mt-2 text-[12px] text-[#8B849E]">
                     <Package size={14} />
                     <span>{box.itemCount} items</span>

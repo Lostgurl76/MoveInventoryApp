@@ -9,6 +9,7 @@ import { showSuccess, showError } from '@/utils/toast';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { uploadItemImage } from '@/utils/storage';
+import { LocationBadge } from '@/components/LocationBadge';
 
 const Pack = () => {
   const navigate = useNavigate();
@@ -26,7 +27,7 @@ const Pack = () => {
   const undoTimer = useRef<NodeJS.Timeout | null>(null);
 
   // Form States
-  const [boxForm, setBoxForm] = useState({ room: '' as Room | '', location: '' as Location | '' });
+  const [boxForm, setBoxForm] = useState({ room: '' as Room | '', location: '' as Location | '', box_label: '' });
   const [itemForm, setItemForm] = useState({
     item_name: '',
     count: 1,
@@ -108,7 +109,11 @@ const Pack = () => {
     try {
       const { data: box, error } = await supabase
         .from('boxes')
-        .insert({ room: boxForm.room, location: boxForm.location })
+        .insert({ 
+          room: boxForm.room, 
+          location: boxForm.location,
+          box_label: boxForm.box_label || null
+        })
         .select()
         .single();
 
@@ -125,7 +130,8 @@ const Pack = () => {
         label_value: qrValue,
         label_status: 'NOT_PRINTED',
         item_count: 0,
-        created_at: new Date().toISOString()
+        created_at: new Date().toISOString(),
+        box_label: box.box_label
       };
 
       setSession(newSession);
@@ -235,7 +241,7 @@ const Pack = () => {
   const resetSession = () => {
     setSession(null);
     setAppState('NO_ACTIVE_BOX');
-    setBoxForm({ room: '', location: '' });
+    setBoxForm({ room: '', location: '', box_label: '' });
     setRecentItems([]);
   };
 
@@ -300,6 +306,15 @@ const Pack = () => {
                     ))}
                   </select>
                 </div>
+                <div>
+                  <label className="text-[13px] font-medium text-[#5F5A72] mb-2 block">Box label (optional)</label>
+                  <input 
+                    value={boxForm.box_label}
+                    onChange={e => setBoxForm({ ...boxForm, box_label: e.target.value })}
+                    placeholder="e.g. Mae's winter clothes"
+                    className="w-full h-12 px-4 rounded-[12px] border border-[#E6E0F0] focus:border-[#6D4CFF] focus:ring-4 focus:ring-[#6D4CFF]/10 outline-none"
+                  />
+                </div>
               </div>
               <button 
                 onClick={handleCreateBox}
@@ -326,7 +341,8 @@ const Pack = () => {
                         label_value: box.qr_code_value,
                         label_status: 'PRINTED_CONFIRMED',
                         item_count: box.itemCount,
-                        created_at: box.created_at
+                        created_at: box.created_at,
+                        box_label: box.box_label
                       };
                       setSession(resumeSession);
                       setAppState('ACTIVE_BOX_ADDING_ITEMS');
@@ -337,6 +353,7 @@ const Pack = () => {
                     <div>
                       <p className="font-bold text-[#17142A]">Box #{box.box_number}</p>
                       <p className="text-[12px] text-[#8B849E]">{box.room} • {box.itemCount} items</p>
+                      {box.box_label && <p className="text-[11px] text-[#8B849E] italic mt-0.5">{box.box_label}</p>}
                     </div>
                     <div className="w-8 h-8 rounded-full bg-[#F1EFF8] flex items-center justify-center text-[#6D4CFF]">
                       <Plus size={18} />
@@ -358,57 +375,73 @@ const Pack = () => {
                 <div className="text-right">
                   <p className="font-semibold">{session?.room}</p>
                   <p className="text-[13px] opacity-80">{session?.location}</p>
+                  {session?.box_label && <p className="text-[13px] opacity-70 mt-1 italic">{session.box_label}</p>}
                 </div>
               </div>
             </div>
 
-            {/* Label Section */}
+            {/* Label Section - Redesigned for Phomemo M110 */}
             {appState === 'ACTIVE_BOX_LABEL_PENDING' && (
-              <div className="bg-white rounded-[18px] p-5 shadow-[0_6px_18px_rgba(31,20,70,0.08)] space-y-4">
-                <div className="flex items-center gap-4">
-                  <div className="p-2 bg-[#F6F4FB] rounded-lg">
-                    <QRCodeSVG value={session?.label_value || ''} size={64} />
+              <div className="space-y-6">
+                <div className="bg-white rounded-[16px] border border-[#E6E0F0] shadow-lg max-width-[280px] mx-auto aspect-square p-4 flex flex-col items-center justify-between text-center">
+                  <div className="w-full flex justify-between items-center">
+                    <LocationBadge location={session?.location || 'Unassigned'} />
+                    <span className="text-[11px] font-semibold text-[#5F5A72] uppercase tracking-wider">{session?.room}</span>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[13px] font-medium text-[#5F5A72]">Box Label URL</p>
-                    <p className="text-[11px] text-[#8B849E] truncate">{session?.label_value}</p>
+                  
+                  <div className="flex flex-col items-center">
+                    <span className="text-[13px] font-medium text-[#8B849E]">Box #</span>
+                    <span className="text-[52px] font-black text-[#17142A] leading-none">{session?.box_number}</span>
                   </div>
+
+                  {session?.box_label && (
+                    <p className="text-[12px] font-medium text-[#5F5A72] italic px-2 line-clamp-2">{session.box_label}</p>
+                  )}
+
+                  <div className="p-1 bg-white">
+                    <QRCodeSVG value={session?.label_value || ''} size={96} />
+                  </div>
+
+                  <p className="text-[8px] text-[#8B849E] break-all text-center px-2 w-full opacity-60">{session?.label_value}</p>
                 </div>
-                <div className="grid grid-cols-2 gap-2">
+
+                <div className="grid grid-cols-2 gap-3">
                   <button 
                     onClick={() => {
                       navigator.clipboard.writeText(session?.label_value || '');
                       updateLabelStatus('COPIED');
                       showSuccess('URL Copied');
                     }}
-                    className="h-10 bg-[#F1EFF8] text-[#4B2FBF] rounded-[10px] text-[13px] font-semibold flex items-center justify-center gap-2 active:scale-95"
+                    className="h-12 bg-[#F1EFF8] text-[#4B2FBF] rounded-[12px] text-[14px] font-bold flex items-center justify-center gap-2 active:scale-95"
                   >
-                    <Copy size={16} /> Copy
+                    <Copy size={18} /> Copy
                   </button>
                   <button 
                     onClick={() => {
                       if (navigator.share) {
-                        navigator.share({ title: `Box #${session?.box_number}`, url: session?.label_value });
+                        navigator.share({ 
+                          title: `Box #${session?.box_number} — ${session?.room}`, 
+                          text: session?.box_label || '',
+                          url: session?.label_value 
+                        });
                         updateLabelStatus('SHARED');
                       }
                     }}
-                    className="h-10 bg-[#F1EFF8] text-[#4B2FBF] rounded-[10px] text-[13px] font-semibold flex items-center justify-center gap-2 active:scale-95"
+                    className="h-12 bg-[#F1EFF8] text-[#4B2FBF] rounded-[12px] text-[14px] font-bold flex items-center justify-center gap-2 active:scale-95"
                   >
-                    <Share2 size={16} /> Share
+                    <Share2 size={18} /> Share
                   </button>
-                </div>
-                <div className="pt-2 space-y-2">
                   <button 
                     onClick={() => updateLabelStatus('PRINTED_CONFIRMED')}
-                    className="w-full h-11 bg-[#14B8A6] text-white rounded-[12px] text-[14px] font-semibold active:scale-95"
+                    className="h-12 bg-[#14B8A6] text-white rounded-[12px] text-[14px] font-bold active:scale-95"
                   >
-                    Mark Label Printed
+                    Mark Printed
                   </button>
                   <button 
                     onClick={() => updateLabelStatus('SKIPPED')}
-                    className="w-full h-11 text-[#8B849E] text-[13px] font-medium active:scale-95"
+                    className="h-12 bg-white border border-[#E6E0F0] text-[#8B849E] rounded-[12px] text-[14px] font-bold active:scale-95"
                   >
-                    Skip for now
+                    Skip
                   </button>
                 </div>
               </div>

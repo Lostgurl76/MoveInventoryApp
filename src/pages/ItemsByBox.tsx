@@ -48,10 +48,11 @@ const ItemsByBox = () => {
     <Layout title={`Box #${box.box_number}`} showBack>
       <div className="space-y-6">
         <div className="bg-white rounded-[22px] p-6 shadow-[0_12px_32px_rgba(31,20,70,0.12)]">
-          <div className="flex justify-between items-center mb-4">
+          <div className="flex justify-between items-center mb-2">
             <h2 className="text-2xl font-bold text-[#17142A]">{box.room}</h2>
             <LocationBadge location={box.location} />
           </div>
+          {box.box_label && <p className="text-[13px] text-[#8B849E] italic mb-4">{box.box_label}</p>}
           <div className="flex items-center gap-2 text-[13px] text-[#8B849E]">
             <Package size={16} />
             <span>{items.length} items total</span>
@@ -101,7 +102,8 @@ const ItemsByBox = () => {
               label_value: box.qr_code_value,
               label_status: 'PRINTED_CONFIRMED',
               item_count: items.length,
-              created_at: new Date().toISOString()
+              created_at: new Date().toISOString(),
+              box_label: box.box_label
             }));
             navigate('/pack');
           }}

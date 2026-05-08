@@ -10,6 +10,7 @@ export interface Box {
   room: Room;
   location: Location;
   qr_code_value: string;
+  box_label?: string;
 }
 
 export interface Item {
@@ -36,6 +37,7 @@ export interface ActiveBoxSession {
   label_status: LabelStatus;
   item_count: number;
   created_at: string;
+  box_label?: string;
 }
 
 export type AppState = 
