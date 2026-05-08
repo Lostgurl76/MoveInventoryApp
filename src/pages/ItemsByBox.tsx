@@ -1,11 +1,12 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useSearchParams, Link, useNavigate } from 'react-router-dom';
 import { Layout } from '@/components/Layout';
 import { supabase } from '@/lib/supabase';
 import { Box, Item } from '@/types/inventory';
 import { LocationBadge } from '@/components/LocationBadge';
-import { Package, ChevronRight, Plus } from 'lucide-react';
+import { Package, ChevronRight, Plus, Trash2, X } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { showError, showSuccess } from '@/utils/toast';
 
 const ItemsByBox = () => {
   const [searchParams] = useSearchParams();
@@ -14,6 +15,9 @@ const ItemsByBox = () => {
   const [box, setBox] = useState<Box | null>(null);
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
+  const [deleteState, setDeleteState] = useState<'idle' | 'confirm' | 'warning'>('idle');
+  const [deleting, setDeleting] = useState(false);
+  const headerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -41,22 +45,112 @@ const ItemsByBox = () => {
     fetchData();
   }, [boxNumber]);
 
+  useEffect(() => {
+    if (deleteState !== 'warning') return;
+
+    const handlePointerDown = (event: PointerEvent) => {
+      if (headerRef.current && !headerRef.current.contains(event.target as Node)) {
+        setDeleteState('idle');
+      }
+    };
+
+    document.addEventListener('pointerdown', handlePointerDown);
+    return () => document.removeEventListener('pointerdown', handlePointerDown);
+  }, [deleteState]);
+
+  const handleDeleteTap = () => {
+    if (items.length > 0) {
+      setDeleteState('warning');
+      return;
+    }
+
+    setDeleteState(current => (current === 'confirm' ? current : 'confirm'));
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!box) return;
+
+    setDeleting(true);
+    try {
+      const { error } = await supabase
+        .from('boxes')
+        .delete()
+        .eq('id', box.id);
+
+      if (error) throw error;
+
+      showSuccess('Box deleted');
+      navigate('/all-boxes');
+    } catch (err) {
+      showError('Failed to delete box');
+      setDeleting(false);
+    }
+  };
+
   if (loading) return <Layout title="Loading..."><div className="flex justify-center py-20"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#6D4CFF]"></div></div></Layout>;
   if (!box) return <Layout title="Not Found" showBack><div className="text-center py-20 text-[#8B849E]">Box not found</div></Layout>;
 
   return (
     <Layout title={`Box #${box.box_number}`} showBack>
       <div className="space-y-6">
-        <div className="bg-white rounded-[22px] p-6 shadow-[0_12px_32px_rgba(31,20,70,0.12)]">
-          <div className="flex justify-between items-center mb-2">
-            <h2 className="text-2xl font-bold text-[#17142A]">{box.room}</h2>
-            <LocationBadge location={box.location} />
+        <div ref={headerRef} className="bg-white rounded-[22px] p-6 shadow-[0_12px_32px_rgba(31,20,70,0.12)] space-y-4">
+          <div className="flex items-start justify-between gap-3 mb-2">
+            <div>
+              <h2 className="text-2xl font-bold text-[#17142A]">{box.room}</h2>
+              {box.box_label && <p className="text-[13px] text-[#8B849E] italic mt-1">{box.box_label}</p>}
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <LocationBadge location={box.location} />
+              <button
+                onClick={handleDeleteTap}
+                className="h-11 w-11 rounded-full bg-[#FFF1F3] text-[#E11D48] flex items-center justify-center shadow-sm active:scale-95 transition-transform"
+                aria-label="Delete box"
+              >
+                <Trash2 size={18} />
+              </button>
+            </div>
           </div>
-          {box.box_label && <p className="text-[13px] text-[#8B849E] italic mb-4">{box.box_label}</p>}
           <div className="flex items-center gap-2 text-[13px] text-[#8B849E]">
             <Package size={16} />
             <span>{items.length} items total</span>
           </div>
+
+          {deleteState === 'confirm' && (
+            <div className="rounded-[18px] border border-[#FBC7D4] bg-[#FFF6F8] p-4">
+              <p className="text-[13px] font-medium text-[#9F1239]">Delete this empty box?</p>
+              <div className="mt-3 flex gap-2">
+                <button
+                  onClick={() => setDeleteState('idle')}
+                  disabled={deleting}
+                  className="flex-1 h-11 rounded-[14px] bg-white border border-[#F3D7DE] text-[#6B7280] font-semibold active:scale-95 transition-transform"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleConfirmDelete}
+                  disabled={deleting}
+                  className="flex-1 h-11 rounded-[14px] bg-[#E11D48] text-white font-semibold active:scale-95 transition-transform"
+                >
+                  {deleting ? 'Deleting...' : 'Confirm Delete'}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {deleteState === 'warning' && (
+            <div className="rounded-[18px] border border-[#FDE68A] bg-[#FFFBEA] p-4 flex items-start justify-between gap-3">
+              <p className="text-[13px] font-medium text-[#92400E]">
+                This box contains {items.length} items. Reassign or delete all items before deleting this box.
+              </p>
+              <button
+                onClick={() => setDeleteState('idle')}
+                className="h-8 w-8 rounded-full bg-white text-[#92400E] flex items-center justify-center shrink-0 active:scale-95 transition-transform"
+                aria-label="Dismiss warning"
+              >
+                <X size={16} />
+              </button>
+            </div>
+          )}
         </div>
 
         <div className="space-y-3">
