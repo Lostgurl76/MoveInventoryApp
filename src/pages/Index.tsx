@@ -47,16 +47,16 @@ const Index = () => {
       <div className="space-y-6">
         {/* Hero Stats */}
         <div className="grid grid-cols-3 gap-4">
-          <div className="bg-white p-5 rounded-[22px] shadow-[0_12px_32px_rgba(31,20,70,0.12)]">
-            <p className="text-[13px] font-medium text-[#8B849E] mb-1">Total Boxes</p>
+          <div className="bg-white p-5 rounded-[22px] shadow-[0_12px_32px_rgba(31,20,70,0.12)] text-center">
+            <p className="text-[13px] font-medium text-[#8B849E] mb-1">Boxes</p>
             <p className="text-3xl font-bold text-[#17142A]">{stats.totalBoxes}</p>
           </div>
-          <div className="bg-white p-5 rounded-[22px] shadow-[0_12px_32px_rgba(31,20,70,0.12)]">
-            <p className="text-[13px] font-medium text-[#8B849E] mb-1">Total Items</p>
+          <div className="bg-white p-5 rounded-[22px] shadow-[0_12px_32px_rgba(31,20,70,0.12)] text-center">
+            <p className="text-[13px] font-medium text-[#8B849E] mb-1">Items</p>
             <p className="text-3xl font-bold text-[#17142A]">{stats.totalItems}</p>
           </div>
-          <div className="bg-white p-5 rounded-[22px] shadow-[0_12px_32px_rgba(31,20,70,0.12)]">
-            <p className="text-[13px] font-medium text-[#8B849E] mb-1">Unassigned Boxes</p>
+          <div className="bg-white p-5 rounded-[22px] shadow-[0_12px_32px_rgba(31,20,70,0.12)] text-center">
+            <p className="text-[13px] font-medium text-[#8B849E] mb-1">Unassigned</p>
             <p className="text-3xl font-bold text-[#17142A]">{stats.unassignedBoxes}</p>
           </div>
         </div>
