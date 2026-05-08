@@ -1,5 +1,6 @@
 import React, { useRef, useState } from 'react';
 import { Layout } from '@/components/Layout';
+import { supabase } from '@/lib/supabase';
 import { useNavigate } from 'react-router-dom';
 import { ScanLine, ArrowRight, Loader2 } from 'lucide-react';
 
@@ -34,11 +35,6 @@ const Scan = () => {
 
     try {
       const fileName = `qr-temp/${Date.now()}.jpg`;
-      const { createClient } = await import('@supabase/supabase-js');
-      const supabase = createClient(
-        'https://lgpksrzqjqoznabrsacg.supabase.co',
-        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxncGtzcnpxanFvem5hYnJzYWNnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgyMTM3MzEsImV4cCI6MjA5Mzc4OTczMX0.BYIzbSyXH5F26ReArAj0SiIyhO544MRePAK0mD1Srpk'
-      );
 
       const { error: uploadError } = await supabase.storage
         .from('item-images')
