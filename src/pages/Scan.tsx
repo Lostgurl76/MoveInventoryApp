@@ -27,9 +27,10 @@ const Scan = () => {
   };
 
   const handleCapture = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    console.log('file selected', file?.name);
     setError('');
     setDecoding(true);
-    const file = e.target.files?.[0];
     if (!file) { setDecoding(false); return; }
 
     const formData = new FormData();
@@ -96,7 +97,7 @@ const Scan = () => {
           type="file"
           accept="image/*"
           capture="environment"
-          className="hidden"
+          style={{ position: 'absolute', opacity: 0, width: 0, height: 0 }}
           onChange={handleCapture}
         />
 
