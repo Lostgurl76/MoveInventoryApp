@@ -1,34 +1,29 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Layout } from '@/components/Layout';
 import { useNavigate } from 'react-router-dom';
-import { Camera, X, Loader2, AlertCircle } from 'lucide-react';
+import { X, AlertCircle } from 'lucide-react';
+import { BrowserMultiFormatReader } from '@zxing/browser';
 
 declare global {
   interface Window {
-    ZXing: any;
+    BarcodeDetector?: {
+      new (options?: { formats?: string[] }): {
+        detect: (source: ImageBitmapSource) => Promise<Array<{ rawValue?: string }>>;
+      };
+    };
   }
 }
 
 const Scan = () => {
   const navigate = useNavigate();
   const videoRef = useRef<HTMLVideoElement>(null);
-  const readerRef = useRef<any>(null);
+  const stopScannerRef = useRef<() => void>(() => {});
   const [scanning, setScanning] = useState(false);
   const [error, setError] = useState('');
-  const [zxingLoaded, setZxingLoaded] = useState(false);
 
-  useEffect(() => {
-    const checkZXing = () => {
-      if (window.ZXing) {
-        setZxingLoaded(true);
-        startScanner();
-      } else {
-        setTimeout(checkZXing, 100);
-      }
-    };
-    checkZXing();
-    return () => stopScanner();
-  }, []);
+  const stopScanner = () => {
+    stopScannerRef.current();
+  };
 
   const handleResult = (text: string) => {
     if (text.includes('box=')) {
@@ -39,65 +34,109 @@ const Scan = () => {
   };
 
   const startScanner = async () => {
-    if (!zxingLoaded || !window.ZXing) {
-      setError('Scanner not ready yet, please wait');
-      return;
-    }
+    stopScanner();
     setError('');
-    setScanning(true);
+
+    let stream: MediaStream | undefined;
+    let animFrame = 0;
+    let stopped = false;
+    let controls: { stop: () => void } | undefined;
+
+    const cleanup = () => {
+      if (stopped) return;
+      stopped = true;
+      cancelAnimationFrame(animFrame);
+      controls?.stop();
+      stream?.getTracks().forEach(track => track.stop());
+      if (videoRef.current) {
+        videoRef.current.pause();
+        videoRef.current.srcObject = null;
+      }
+      setScanning(false);
+    };
+
+    stopScannerRef.current = cleanup;
 
     try {
-      const codeReader = new window.ZXing.BrowserQRCodeReader();
-      readerRef.current = codeReader;
+      stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment' }
+      });
 
-      const devices = await window.ZXing.BrowserCodeReader.listVideoInputDevices();
-      const back = devices.find((d: any) =>
-        /back|rear|environment/i.test(d.label)
-      ) || devices[devices.length - 1];
+      if (stopped || !videoRef.current) {
+        cleanup();
+        return;
+      }
 
-      await codeReader.decodeFromVideoDevice(
-        back?.deviceId || undefined,
-        videoRef.current,
-        (result: any) => {
-          if (result) handleResult(result.getText());
+      videoRef.current.srcObject = stream;
+      await videoRef.current.play();
+      setScanning(true);
+
+      if (window.BarcodeDetector) {
+        const detector = new window.BarcodeDetector({ formats: ['qr_code'] });
+
+        const detect = async () => {
+          if (stopped || !videoRef.current) return;
+
+          try {
+            const codes = await detector.detect(videoRef.current);
+            if (codes.length > 0 && codes[0].rawValue) {
+              handleResult(codes[0].rawValue);
+              return;
+            }
+          } catch {
+            // Ignore frame-level detection errors and continue scanning.
+          }
+
+          animFrame = requestAnimationFrame(detect);
+        };
+
+        detect();
+        return;
+      }
+
+      const reader = new BrowserMultiFormatReader();
+      controls = await reader.decodeFromVideoDevice(undefined, videoRef.current, (result) => {
+        if (result) {
+          const text = typeof result.getText === 'function' ? result.getText() : '';
+          if (text) handleResult(text);
         }
-      );
+      });
     } catch (e: any) {
-      stopScanner();
+      cleanup();
       setError(
         e.name === 'NotAllowedError'
           ? 'Camera permission denied. Use manual entry below.'
-          : 'Could not start camera. Use manual entry below.'
+          : 'Camera not available. Use manual entry below.'
       );
     }
   };
 
-  const stopScanner = () => {
-    if (readerRef.current) {
-      readerRef.current.reset?.();
-    }
-    setScanning(false);
-  };
+  useEffect(() => {
+    startScanner();
+    return () => stopScanner();
+  }, []);
 
   return (
     <Layout title="Scan QR Code" showBack>
       <div className="space-y-6">
         <div className="relative aspect-square bg-black rounded-[22px] overflow-hidden shadow-xl">
-          <video 
-            ref={videoRef} 
+          <video
+            ref={videoRef}
             className="w-full h-full object-cover"
+            playsInline
+            muted
           />
           <div className="absolute inset-0 border-[2px] border-white/20 pointer-events-none">
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 border-2 border-[#6D4CFF] rounded-3xl">
               <div className="absolute inset-0 bg-[#6D4CFF]/10 animate-pulse rounded-3xl" />
             </div>
           </div>
-          
+
           {error && (
             <div className="absolute inset-0 bg-black/80 flex flex-col items-center justify-center p-8 text-center space-y-4">
               <AlertCircle size={48} className="text-[#F43F5E]" />
               <p className="text-white font-medium">{error}</p>
-              <button 
+              <button
                 onClick={startScanner}
                 className="px-6 py-2 bg-[#6D4CFF] text-white rounded-full font-bold"
               >
@@ -106,6 +145,15 @@ const Scan = () => {
             </div>
           )}
         </div>
+
+        {scanning && (
+          <button
+            onClick={stopScanner}
+            className="w-full h-12 bg-white border border-[#F3D7DE] text-[#E11D48] rounded-[16px] font-bold flex items-center justify-center gap-2 active:scale-95 transition-transform"
+          >
+            <X size={18} /> Stop Camera
+          </button>
+        )}
 
         <div className="bg-white p-6 rounded-[22px] shadow-sm space-y-4">
           <h3 className="font-bold text-[#17142A]">How to scan</h3>
