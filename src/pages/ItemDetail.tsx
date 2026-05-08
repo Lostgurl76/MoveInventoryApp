@@ -13,6 +13,7 @@ const ItemDetail = () => {
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [item, setItem] = useState<any>(null);
+  const [boxes, setBoxes] = useState<Box[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -21,12 +22,20 @@ const ItemDetail = () => {
 
   useEffect(() => {
     const fetchItem = async () => {
-      const { data } = await supabase
-        .from('items')
-        .select('*, boxes(*)')
-        .eq('item_id', id)
-        .single();
-      if (data) setItem(data);
+      const [{ data: itemData }, { data: boxesData }] = await Promise.all([
+        supabase
+          .from('items')
+          .select('*, boxes(*)')
+          .eq('item_id', id)
+          .single(),
+        supabase
+          .from('boxes')
+          .select('*')
+          .order('box_number', { ascending: true })
+      ]);
+
+      if (itemData) setItem(itemData);
+      if (boxesData) setBoxes(boxesData);
       setLoading(false);
     };
     fetchItem();
@@ -50,18 +59,28 @@ const ItemDetail = () => {
   const handleSave = async () => {
     setSaving(true);
     try {
+      const boxChanged = item.box_id !== item.boxes?.id;
+      const selectedBox = boxes.find(box => box.id === item.box_id);
+      const updatePayload: Record<string, any> = {
+        item_name: item.item_name,
+        count: item.count,
+        item_type: item.item_type,
+        description: item.description,
+        serial_number: item.serial_number,
+        est_value: item.est_value,
+        item_notes: item.item_notes,
+        image: item.image
+      };
+
+      if (boxChanged && selectedBox) {
+        updatePayload.box_id = selectedBox.id;
+        updatePayload.location = selectedBox.location;
+        updatePayload.room = selectedBox.room;
+      }
+
       const { error } = await supabase
         .from('items')
-        .update({
-          item_name: item.item_name,
-          count: item.count,
-          item_type: item.item_type,
-          description: item.description,
-          serial_number: item.serial_number,
-          est_value: item.est_value,
-          item_notes: item.item_notes,
-          image: item.image
-        })
+        .update(updatePayload)
         .eq('item_id', id);
       if (error) throw error;
       showSuccess('Item updated');
@@ -85,6 +104,10 @@ const ItemDetail = () => {
 
   if (loading) return <Layout title="Loading..."><div className="flex justify-center py-20"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#6D4CFF]"></div></div></Layout>;
   if (!item) return <Layout title="Not Found" showBack><div className="text-center py-20 text-[#8B849E]">Item not found</div></Layout>;
+
+  const selectedBox = boxes.find(box => box.id === item.box_id);
+  const displayedRoom = selectedBox?.room || item.room;
+  const displayedLocation = selectedBox?.location || item.location;
 
   return (
     <Layout title="Item Details" showBack>
@@ -133,9 +156,19 @@ const ItemDetail = () => {
                 <div className="w-10 h-10 rounded-full bg-[#EEE9FF] flex items-center justify-center text-[#6D4CFF]">
                   <Hash size={20} />
                 </div>
-                <div>
+                <div className="flex-1 min-w-0">
                   <p className="text-[11px] text-[#8B849E]">Box</p>
-                  <p className="font-bold text-[#17142A]">#{item.boxes?.box_number}</p>
+                  <select
+                    value={item.box_id}
+                    onChange={e => setItem({ ...item, box_id: Number(e.target.value) })}
+                    className="w-full bg-transparent font-bold text-[#17142A] outline-none"
+                  >
+                    {boxes.map(box => (
+                      <option key={box.id} value={box.id}>
+                        {`Box #${box.box_number} — ${box.room} (${box.location})`}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </div>
               <div className="flex items-center gap-3">
@@ -161,7 +194,7 @@ const ItemDetail = () => {
                 </div>
                 <div>
                   <p className="text-[11px] text-[#8B849E]">Room</p>
-                  <p className="font-bold text-[#17142A]">{item.room}</p>
+                  <p className="font-bold text-[#17142A]">{displayedRoom}</p>
                 </div>
               </div>
               <div className="flex items-center gap-3">
@@ -170,7 +203,7 @@ const ItemDetail = () => {
                 </div>
                 <div>
                   <p className="text-[11px] text-[#8B849E]">Location</p>
-                  <p className="font-bold text-[#17142A]">{item.location}</p>
+                  <p className="font-bold text-[#17142A]">{displayedLocation}</p>
                 </div>
               </div>
             </div>
