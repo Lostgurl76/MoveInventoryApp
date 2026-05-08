@@ -165,7 +165,7 @@ const ItemDetail = () => {
                   >
                     {boxes.map(box => (
                       <option key={box.id} value={box.id}>
-                        {`Box #${box.box_number} — ${box.room} (${box.location})`}
+                        {`Box #${box.box_number}`}
                       </option>
                     ))}
                   </select>
