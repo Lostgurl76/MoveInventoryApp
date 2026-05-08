@@ -12,7 +12,8 @@
   }
 
   body {
-    @apply bg-[#F6F4FB] text-[#17142A] font-inter antialiased;
+    @apply bg-[#F6F4FB] text-[#17142A] antialiased;
+    font-family: 'Inter', sans-serif;
     -webkit-tap-highlight-color: transparent;
   }
 

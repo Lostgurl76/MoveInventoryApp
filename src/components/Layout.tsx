@@ -34,7 +34,7 @@ const BottomNav = () => {
 
 export const Layout = ({ children, title, showBack = false }: { children: React.ReactNode, title?: string, showBack?: boolean }) => {
   return (
-    <div className="min-h-screen bg-[#F6F4FB] pb-[80px] font-inter">
+    <div className="min-h-screen bg-[#F6F4FB] pb-[80px]">
       {title && (
         <header className="sticky top-0 bg-white/80 backdrop-blur-md z-40 px-6 py-4 flex items-center gap-4 border-b border-[#E6E0F0]">
           {showBack && (
