@@ -45,7 +45,7 @@ const Pack = () => {
       const parsed: ActiveBoxSession = JSON.parse(saved);
       setSession(parsed);
       
-      if (parsed.label_status === 'PRINTED_CONFIRMED') setAppState= 'ACTIVE_BOX_ADDING_ITEMS');
+      if (parsed.label_status === 'PRINTED_CONFIRMED') setAppState('ACTIVE_BOX_ADDING_ITEMS');
       else if (parsed.label_status === 'SKIPPED') setAppState('ACTIVE_BOX_ADDING_ITEMS');
       else setAppState('ACTIVE_BOX_LABEL_PENDING');
       
