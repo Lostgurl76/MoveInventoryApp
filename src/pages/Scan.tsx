@@ -27,28 +27,46 @@ const Scan = () => {
   };
 
   const handleCapture = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    console.log('file selected', file?.name);
     setError('');
     setDecoding(true);
+    const file = e.target.files?.[0];
     if (!file) { setDecoding(false); return; }
 
-    const formData = new FormData();
-    formData.append('file', file);
-
     try {
+      const fileName = `qr-temp/${Date.now()}.jpg`;
+      const { createClient } = await import('@supabase/supabase-js');
+      const supabase = createClient(
+        'https://lgpksrzqjqoznabrsacg.supabase.co',
+        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxncGtzcnpxanFvem5hYnJzYWNnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgyMTM3MzEsImV4cCI6MjA5Mzc4OTczMX0.BYIzbSyXH5F26ReArAj0SiIyhO544MRePAK0mD1Srpk'
+      );
+
+      const { error: uploadError } = await supabase.storage
+        .from('item-images')
+        .upload(fileName, file, { contentType: 'image/jpeg' });
+
+      if (uploadError) throw new Error('Upload failed');
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('item-images')
+        .getPublicUrl(fileName);
+
       const res = await fetch('/api/decode-qr', {
         method: 'POST',
-        body: formData
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ imageUrl: publicUrl })
       });
+
       const data = await res.json();
       const result = data?.[0]?.symbol?.[0]?.data;
+
+      await supabase.storage.from('item-images').remove([fileName]);
+
       if (result) {
         handleResult(result);
       } else {
         setError('No QR code found. Try again with better lighting or a closer shot.');
       }
-    } catch {
+    } catch (e) {
       setError('Could not read QR code. Try again.');
     } finally {
       setDecoding(false);
