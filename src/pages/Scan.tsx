@@ -2,7 +2,6 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Layout } from '@/components/Layout';
 import { useNavigate } from 'react-router-dom';
 import { X, AlertCircle } from 'lucide-react';
-import { BrowserMultiFormatReader } from '@zxing/browser';
 
 declare global {
   interface Window {
@@ -40,13 +39,11 @@ const Scan = () => {
     let stream: MediaStream | undefined;
     let animFrame = 0;
     let stopped = false;
-    let controls: { stop: () => void } | undefined;
 
     const cleanup = () => {
       if (stopped) return;
       stopped = true;
       cancelAnimationFrame(animFrame);
-      controls?.stop();
       stream?.getTracks().forEach(track => track.stop());
       if (videoRef.current) {
         videoRef.current.pause();
@@ -58,6 +55,11 @@ const Scan = () => {
     stopScannerRef.current = cleanup;
 
     try {
+      if (!window.BarcodeDetector) {
+        setError('Camera not available. Use manual entry below.');
+        return;
+      }
+
       stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: 'environment' }
       });
@@ -71,36 +73,25 @@ const Scan = () => {
       await videoRef.current.play();
       setScanning(true);
 
-      if (window.BarcodeDetector) {
-        const detector = new window.BarcodeDetector({ formats: ['qr_code'] });
+      const detector = new window.BarcodeDetector({ formats: ['qr_code'] });
 
-        const detect = async () => {
-          if (stopped || !videoRef.current) return;
+      const detect = async () => {
+        if (stopped || !videoRef.current) return;
 
-          try {
-            const codes = await detector.detect(videoRef.current);
-            if (codes.length > 0 && codes[0].rawValue) {
-              handleResult(codes[0].rawValue);
-              return;
-            }
-          } catch {
-            // Ignore frame-level detection errors and continue scanning.
+        try {
+          const codes = await detector.detect(videoRef.current);
+          if (codes.length > 0 && codes[0].rawValue) {
+            handleResult(codes[0].rawValue);
+            return;
           }
-
-          animFrame = requestAnimationFrame(detect);
-        };
-
-        detect();
-        return;
-      }
-
-      const reader = new BrowserMultiFormatReader();
-      controls = await reader.decodeFromVideoDevice(undefined, videoRef.current, (result) => {
-        if (result) {
-          const text = typeof result.getText === 'function' ? result.getText() : '';
-          if (text) handleResult(text);
+        } catch {
+          // Ignore frame-level detection errors and continue scanning.
         }
-      });
+
+        animFrame = requestAnimationFrame(detect);
+      };
+
+      detect();
     } catch (e: any) {
       cleanup();
       setError(
