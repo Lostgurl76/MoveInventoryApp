@@ -102,7 +102,7 @@ const Pack = () => {
 
       if (error) throw error;
 
-      const qrValue = `https://move-inventory-app.vercel.app/items-by-box?box=${box.box_number}`;
+      const qrValue = `https://move-inventory-app-chi.vercel.app/items-by-box?box=${box.box_number}`;
       await supabase.from('boxes').update({ qr_code_value: qrValue }).eq('id', box.id);
 
       const newSession: ActiveBoxSession = {
