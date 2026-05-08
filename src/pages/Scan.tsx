@@ -1,38 +1,46 @@
 import React, { useRef, useState } from 'react';
 import { Layout } from '@/components/Layout';
 import { useNavigate } from 'react-router-dom';
-import { ScanLine, ArrowRight } from 'lucide-react';
-import jsQR from 'jsqr';
+import { ScanLine, ArrowRight, Loader2 } from 'lucide-react';
 
 const Scan = () => {
   const navigate = useNavigate();
   const inputRef = useRef<HTMLInputElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
   const [error, setError] = useState('');
+  const [decoding, setDecoding] = useState(false);
   const [manualInput, setManualInput] = useState('');
   const [manualError, setManualError] = useState('');
 
-  const handleCapture = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleCapture = async (e: React.ChangeEvent<HTMLInputElement>) => {
     setError('');
+    setDecoding(true);
     const file = e.target.files?.[0];
-    if (!file) return;
+    if (!file) {
+      setDecoding(false);
+      return;
+    }
 
-    const img = new Image();
-    img.onload = () => {
-      const canvas = canvasRef.current!;
-      canvas.width = img.width;
-      canvas.height = img.height;
-      const ctx = canvas.getContext('2d')!;
-      ctx.drawImage(img, 0, 0);
-      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      const code = jsQR(imageData.data, imageData.width, imageData.height);
-      if (code) {
-        handleResult(code.data);
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      const res = await fetch('https://api.qrserver.com/v1/read-qr-code/', {
+        method: 'POST',
+        body: formData
+      });
+      const data = await res.json();
+      const result = data?.[0]?.symbol?.[0]?.data;
+      if (result) {
+        handleResult(result);
       } else {
-        setError('No QR code found in photo. Try again.');
+        setError('No QR code found. Try again with better lighting or a closer shot.');
       }
-    };
-    img.src = URL.createObjectURL(file);
+    } catch {
+      setError('Could not read QR code. Try again.');
+    } finally {
+      setDecoding(false);
+      if (inputRef.current) inputRef.current.value = '';
+    }
   };
 
   const handleResult = (qrUrl: string) => {
@@ -65,14 +73,25 @@ const Scan = () => {
     <Layout title="Scan QR Code">
       <div className="space-y-6">
         <div
-          onClick={() => inputRef.current?.click()}
+          onClick={() => !decoding && inputRef.current?.click()}
           className="bg-[#17142A] rounded-[22px] aspect-square flex flex-col items-center justify-center gap-4 cursor-pointer active:opacity-80 transition-opacity shadow-[0_12px_32px_rgba(31,20,70,0.24)]"
         >
-          <div className="w-20 h-20 bg-white/10 rounded-full flex items-center justify-center">
-            <ScanLine size={40} className="text-white" />
-          </div>
-          <p className="text-white font-semibold text-[16px]">Tap to scan QR code</p>
-          <p className="text-white/50 text-[13px] text-center px-8">Opens your camera to capture the box label</p>
+          {decoding ? (
+            <>
+              <div className="w-20 h-20 bg-white/10 rounded-full flex items-center justify-center">
+                <Loader2 size={40} className="text-white animate-spin" />
+              </div>
+              <p className="text-white font-semibold text-[16px]">Reading QR code...</p>
+            </>
+          ) : (
+            <>
+              <div className="w-20 h-20 bg-white/10 rounded-full flex items-center justify-center">
+                <ScanLine size={40} className="text-white" />
+              </div>
+              <p className="text-white font-semibold text-[16px]">Tap to scan QR code</p>
+              <p className="text-white/50 text-[13px] text-center px-8">Opens your camera to capture the box label</p>
+            </>
+          )}
         </div>
 
         <input
@@ -83,7 +102,6 @@ const Scan = () => {
           className="hidden"
           onChange={handleCapture}
         />
-        <canvas ref={canvasRef} className="hidden" />
 
         {error && (
           <div className="bg-[#FFE4E6] border border-[#F43F5E]/20 p-3 rounded-[12px]">
@@ -105,7 +123,10 @@ const Scan = () => {
                 type="number"
                 inputMode="numeric"
                 value={manualInput}
-                onChange={e => { setManualInput(e.target.value); setManualError(''); }}
+                onChange={e => {
+                  setManualInput(e.target.value);
+                  setManualError('');
+                }}
                 placeholder="Box number"
                 className="w-full h-12 px-4 rounded-[12px] border border-[#E6E0F0] focus:border-[#6D4CFF] focus:ring-4 focus:ring-[#6D4CFF]/10 outline-none text-[16px]"
               />
