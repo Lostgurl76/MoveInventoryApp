@@ -37,7 +37,7 @@ const Scan = () => {
     formData.append('file', file);
 
     try {
-      const res = await fetch('https://api.qrserver.com/v1/read-qr-code/', {
+      const res = await fetch('/api/decode-qr', {
         method: 'POST',
         body: formData
       });
