@@ -6,19 +6,31 @@ import { ScanLine, ArrowRight, Loader2 } from 'lucide-react';
 const Scan = () => {
   const navigate = useNavigate();
   const inputRef = useRef<HTMLInputElement>(null);
-  const [error, setError] = useState('');
   const [decoding, setDecoding] = useState(false);
+  const [error, setError] = useState('');
   const [manualInput, setManualInput] = useState('');
   const [manualError, setManualError] = useState('');
+
+  const handleResult = (qrUrl: string) => {
+    try {
+      const url = new URL(qrUrl);
+      const boxParam = url.searchParams.get('box');
+      const boxNum = boxParam ? parseInt(boxParam, 10) : NaN;
+      if (!isNaN(boxNum) && boxNum > 0) {
+        navigate(`/items-by-box?box=${boxNum}`);
+      } else {
+        setError('Unrecognised QR code');
+      }
+    } catch {
+      setError('Unrecognised QR code');
+    }
+  };
 
   const handleCapture = async (e: React.ChangeEvent<HTMLInputElement>) => {
     setError('');
     setDecoding(true);
     const file = e.target.files?.[0];
-    if (!file) {
-      setDecoding(false);
-      return;
-    }
+    if (!file) { setDecoding(false); return; }
 
     const formData = new FormData();
     formData.append('file', file);
@@ -40,21 +52,6 @@ const Scan = () => {
     } finally {
       setDecoding(false);
       if (inputRef.current) inputRef.current.value = '';
-    }
-  };
-
-  const handleResult = (qrUrl: string) => {
-    try {
-      const url = new URL(qrUrl);
-      const boxParam = url.searchParams.get('box');
-      const boxNum = boxParam ? parseInt(boxParam, 10) : NaN;
-      if (!isNaN(boxNum) && boxNum > 0) {
-        navigate(`/items-by-box?box=${boxNum}`);
-      } else {
-        setError('Unrecognised QR code');
-      }
-    } catch {
-      setError('Unrecognised QR code');
     }
   };
 
@@ -123,10 +120,7 @@ const Scan = () => {
                 type="number"
                 inputMode="numeric"
                 value={manualInput}
-                onChange={e => {
-                  setManualInput(e.target.value);
-                  setManualError('');
-                }}
+                onChange={e => { setManualInput(e.target.value); setManualError(''); }}
                 placeholder="Box number"
                 className="w-full h-12 px-4 rounded-[12px] border border-[#E6E0F0] focus:border-[#6D4CFF] focus:ring-4 focus:ring-[#6D4CFF]/10 outline-none text-[16px]"
               />
