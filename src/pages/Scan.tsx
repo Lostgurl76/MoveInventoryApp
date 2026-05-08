@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useState } from 'react';
 import { Layout } from '@/components/Layout';
 import { supabase } from '@/lib/supabase';
 import { useNavigate } from 'react-router-dom';
@@ -6,7 +6,6 @@ import { ScanLine, ArrowRight, Loader2 } from 'lucide-react';
 
 const Scan = () => {
   const navigate = useNavigate();
-  const inputRef = useRef<HTMLInputElement>(null);
   const [decoding, setDecoding] = useState(false);
   const [error, setError] = useState('');
   const [manualInput, setManualInput] = useState('');
@@ -66,7 +65,7 @@ const Scan = () => {
       setError('Could not read QR code. Try again.');
     } finally {
       setDecoding(false);
-      if (inputRef.current) inputRef.current.value = '';
+      e.target.value = '';
     }
   };
 
@@ -84,8 +83,8 @@ const Scan = () => {
   return (
     <Layout title="Scan QR Code">
       <div className="space-y-6">
-        <div
-          onClick={() => !decoding && inputRef.current?.click()}
+        <label
+          htmlFor="qr-input"
           className="bg-[#17142A] rounded-[22px] aspect-square flex flex-col items-center justify-center gap-4 cursor-pointer active:opacity-80 transition-opacity shadow-[0_12px_32px_rgba(31,20,70,0.24)]"
         >
           {decoding ? (
@@ -104,14 +103,13 @@ const Scan = () => {
               <p className="text-white/50 text-[13px] text-center px-8">Opens your camera to capture the box label</p>
             </>
           )}
-        </div>
-
+        </label>
         <input
-          ref={inputRef}
+          id="qr-input"
           type="file"
           accept="image/*"
           capture="environment"
-          style={{ position: 'absolute', opacity: 0, width: 0, height: 0 }}
+          className="hidden"
           onChange={handleCapture}
         />
 
