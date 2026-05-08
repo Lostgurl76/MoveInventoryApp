@@ -4,12 +4,15 @@ import { supabase } from '@/lib/supabase';
 import { Box, Location } from '@/types/inventory';
 import { LocationBadge, getLocationAccent } from '@/components/LocationBadge';
 import { Package, ChevronRight } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 
 const AllBoxes = () => {
+  const [searchParams] = useSearchParams();
+  const initialLocation = searchParams.get('location') as Location | 'All' || 'All';
+  
   const [boxes, setBoxes] = useState<any[]>([]);
-  const [filter, setFilter] = useState<Location | 'All'>('All');
+  const [filter, setFilter] = useState<Location | 'All'>(initialLocation);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {

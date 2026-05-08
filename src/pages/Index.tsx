@@ -81,19 +81,24 @@ const Index = () => {
           <h2 className="text-lg font-semibold text-[#17142A] px-1">Locations</h2>
           <div className="grid gap-3">
             {(Object.entries(stats.byLocation) as [Location, { boxes: number, items: number }][]).map(([loc, data]) => (
-              <motion.div 
+              <Link 
                 key={loc}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="bg-white p-4 rounded-[18px] shadow-[0_6px_18px_rgba(31,20,70,0.08)] flex items-center justify-between border-l-4"
-                style={{ borderLeftColor: getLocationAccent(loc) }}
+                to={`/all-boxes?location=${loc}`}
+                className="block active:scale-[0.98] transition-transform"
               >
-                <div>
-                  <p className="font-semibold text-[#17142A]">{loc}</p>
-                  <p className="text-[13px] text-[#8B849E]">{data.boxes} boxes • {data.items} items</p>
-                </div>
-                <LocationBadge location={loc} />
-              </motion.div>
+                <motion.div 
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="bg-white p-4 rounded-[18px] shadow-[0_6px_18px_rgba(31,20,70,0.08)] flex items-center justify-between border-l-4"
+                  style={{ borderLeftColor: getLocationAccent(loc) }}
+                >
+                  <div>
+                    <p className="font-semibold text-[#17142A]">{loc}</p>
+                    <p className="text-[13px] text-[#8B849E]">{data.boxes} boxes • {data.items} items</p>
+                  </div>
+                  <LocationBadge location={loc} />
+                </motion.div>
+              </Link>
             ))}
           </div>
         </div>
