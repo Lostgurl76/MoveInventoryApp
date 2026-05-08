@@ -270,7 +270,7 @@ const Pack = () => {
                     className="w-full h-12 px-4 rounded-[12px] border border-[#E6E0F0] focus:border-[#6D4CFF] focus:ring-4 focus:ring-[#6D4CFF]/10 outline-none appearance-none bg-white"
                   >
                     <option value="">Select Room</option>
-                    {['Kitchen', 'Living Room', 'Dining Room', 'Bedroom', 'Primary Bedroom', 'Bathroom', 'Primary Bathroom', 'Office', 'Garage', 'Storage', 'Laundry', 'Entryway', 'Other'].map(r => (
+                    {['Bathroom', 'Bedroom', 'Dining Room', 'Entryway', 'Garage', 'Kitchen', 'Laundry', 'Living Room', 'Office', 'Storage', 'Other'].map(r => (
                       <option key={r} value={r}>{r}</option>
                     ))}
                   </select>

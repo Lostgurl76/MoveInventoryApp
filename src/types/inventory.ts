@@ -1,5 +1,10 @@
 export type Location = 'Pod' | 'Mae Car' | 'Ant Car' | 'Unassigned';
-export type Room = 'Kitchen' | 'Living Room' | 'Dining Room' | 'Bedroom' | 'Primary Bedroom' | 'Bathroom' | 'Primary Bathroom' | 'Office' | 'Garage' | 'Storage' | 'Laundry' | 'Entryway' | 'Other';
+export type Room = 'Bathroom' | 'Bedroom' | 'Dining Room' | 'Entryway' | 'Garage' | 'Kitchen' | 'Laundry' | 'Living Room' | 'Office' | 'Storage' | 'Other';
+export type ItemType = 'Clothing' | 'Kitchenware' | 'Cookware' | 'Electronics' | 'Books' | 'Furniture' | 'Bedding' | 'Tools' | 'Bathroom' | 'Documents' | 'Décor' | 'Art' | 'Jewelry' | 'Toys' | 'Sports Equipment' | 'Food' | 'Cleaning Supplies' | 'Other';
+
+export type LabelStatus = 'NOT_PRINTED' | 'COPIED' |<dyad-write path="src/types/inventory.ts" description="Finishing the Room type definition and inventory interfaces.">
+export type Location = 'Pod' | 'Mae Car' | 'Ant Car' | 'Unassigned';
+export type Room = 'Bathroom' | 'Bedroom' | 'Dining Room' | 'Entryway' | 'Garage' | 'Kitchen' | 'Laundry' | 'Living Room' | 'Office' | 'Storage' | 'Other';
 export type ItemType = 'Clothing' | 'Kitchenware' | 'Cookware' | 'Electronics' | 'Books' | 'Furniture' | 'Bedding' | 'Tools' | 'Bathroom' | 'Documents' | 'Décor' | 'Art' | 'Jewelry' | 'Toys' | 'Sports Equipment' | 'Food' | 'Cleaning Supplies' | 'Other';
 
 export type LabelStatus = 'NOT_PRINTED' | 'COPIED' | 'SHARED' | 'PRINTED_CONFIRMED' | 'SKIPPED';

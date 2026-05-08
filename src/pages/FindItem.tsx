@@ -84,7 +84,7 @@ const FindItem = () => {
             ))}
           </div>
           <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
-            {['Kitchen', 'Living Room', 'Dining Room', 'Bedroom', 'Primary Bedroom', 'Bathroom', 'Primary Bathroom', 'Office', 'Garage', 'Storage', 'Laundry', 'Entryway', 'Other'].map(room => (
+            {['Bathroom', 'Bedroom', 'Dining Room', 'Entryway', 'Garage', 'Kitchen', 'Laundry', 'Living Room', 'Office', 'Storage', 'Other'].map(room => (
               <button
                 key={room}
                 onClick={() => setFilters(f => ({ ...f, room: f.room === room ? '' : room as Room }))}
