@@ -28,7 +28,16 @@ const Pack = () => {
 
   // Form States
   const [boxForm, setBoxForm] = useState({ room: '' as Room | '', location: '' as Location | '', box_label: '' });
-  const [itemForm, setItemForm] = useState({
+  const [itemForm, setItemForm] = useState<{
+    item_name: string;
+    count: number | '';
+    item_type: ItemType;
+    description: string;
+    serial_number: string;
+    est_value: string;
+    item_notes: string;
+    image: string;
+  }>({
     item_name: '',
     count: 1,
     item_type: 'Misc.' as ItemType,
@@ -177,7 +186,7 @@ const Pack = () => {
     try {
       const { error } = await supabase.from('items').insert({
         item_name: itemForm.item_name,
-        count: itemForm.count,
+        count: itemForm.count || 1,
         item_type: itemForm.item_type,
         description: itemForm.description,
         serial_number: itemForm.serial_number,
@@ -481,8 +490,12 @@ const Pack = () => {
                     <label className="text-[13px] font-medium text-[#5F5A72] mb-1.5 block">Qty</label>
                     <input 
                       type="number"
+                      inputMode="numeric"
+                      min={1}
                       value={itemForm.count}
-                      onChange={e => setItemForm({ ...itemForm, count: parseInt(e.target.value) || 1 })}
+                      onFocus={e => e.target.select()}
+                      onChange={e => setItemForm({ ...itemForm, count: e.target.value === '' ? '' : parseInt(e.target.value) || 1 })}
+                      onBlur={e => { if (!e.target.value) setItemForm({ ...itemForm, count: 1 }) }}
                       className="w-full h-12 px-3 rounded-[12px] border border-[#E6E0F0] focus:border-[#6D4CFF] outline-none text-center"
                     />
                   </div>
