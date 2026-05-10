@@ -153,6 +153,26 @@ const ItemsByBox = () => {
           )}
         </div>
 
+        <button 
+          onClick={() => {
+            localStorage.setItem('active_box_session', JSON.stringify({
+              id: box.id,
+              box_number: box.box_number,
+              room: box.room,
+              location: box.location,
+              label_value: box.qr_code_value,
+              label_status: 'PRINTED_CONFIRMED',
+              item_count: items.length,
+              created_at: new Date().toISOString(),
+              box_label: box.box_label
+            }));
+            navigate('/pack');
+          }}
+          className="w-full h-14 bg-[#6D4CFF] text-white rounded-[16px] font-bold flex items-center justify-center gap-2 active:scale-95 transition-transform"
+        >
+          <Plus size={20} /> Add Item
+        </button>
+
         <div className="space-y-3">
           <h3 className="text-[15px] font-bold text-[#17142A] px-1">Contents</h3>
           <div className="grid gap-3">
@@ -185,26 +205,6 @@ const ItemsByBox = () => {
             )}
           </div>
         </div>
-
-        <button 
-          onClick={() => {
-            localStorage.setItem('active_box_session', JSON.stringify({
-              id: box.id,
-              box_number: box.box_number,
-              room: box.room,
-              location: box.location,
-              label_value: box.qr_code_value,
-              label_status: 'PRINTED_CONFIRMED',
-              item_count: items.length,
-              created_at: new Date().toISOString(),
-              box_label: box.box_label
-            }));
-            navigate('/pack');
-          }}
-          className="w-full h-14 bg-[#6D4CFF] text-white rounded-[16px] font-bold flex items-center justify-center gap-2 active:scale-95 transition-transform"
-        >
-          <Plus size={20} /> Add Item to this Box
-        </button>
       </div>
     </Layout>
   );
