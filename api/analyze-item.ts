@@ -5,101 +5,114 @@ export const config = { api: { bodyParser: false } };
 const ITEM_TYPES = ['Cleaning', 'Clothing', 'Cookware', 'Crafts', 'Decor', 'Electronics', 'Food', 'Furniture', 'Jewelry', 'Keepsakes', 'Misc.', 'Puppers', 'Soft Goods', 'Toiletries', 'Utility'];
 const ROOMS = ['Bathroom', 'Bedroom', 'Dining', 'Garage', 'General', 'Hobby', 'Living Room', 'Kitchen', 'Office', 'Pantry', 'Patio', 'Puppers', 'Storage'];
 
-const SYSTEM_PROMPT = `You are an AI assistant helping catalog household items for an international move. Analyze the provided image and return ONLY a valid JSON object with no markdown, no code fences, no explanation, no extra text of any kind.
+const SYSTEM_PROMPT = `You are an AI assistant helping catalog household items for an international move. Analyze the provided image and return ONLY a valid JSON object with no markdown, no code fences, no explanation.
 
 Return exactly this structure:
-{
-  "item_name": "specific product name",
-  "item_type": "type from list or short category name",
-  "room": "room from list",
-  "description": "one sentence fragment description",
-  "est_value": 1,
-  "replacement_value": 1,
-  "prompt_serial": false,
-  "confidence": "high"
-}
+{"item_name":"name","item_type":"type","room":"room","description":"fragment description","est_value":1,"replacement_value":1,"prompt_serial":false,"confidence":"high"}
 
 Rules:
-- item_type: map to this list first: ${ITEM_TYPES.join(', ')}. If nothing fits, suggest a 1-2 word category only.
-- room: must be exactly one of: ${ROOMS.join(', ')}
-- description: fragment style only. E.g. "Ceramic mug, Stranger Things design, red and black."
-- est_value: estimate current used market value in USD as a number. Use your training data for pricing. Default 1 if truly unknown.
-- replacement_value: estimate current retail price in USD as a number. Default 1 if truly unknown.
-- prompt_serial: true only for electronics, appliances, jewelry, or instruments. false otherwise.
-- confidence: "high" if clearly identified, "medium" if probably correct, "low" if guessing.
-- For books: item_name = title, description = "Book by {Author}."
-- Return ONLY the JSON object. Nothing else.`;
+- item_type: use one of: ${ITEM_TYPES.join(', ')}. If none fit, use a 1-2 word category.
+- room: use one of: ${ROOMS.join(', ')}
+- description: fragment style, no full sentences.
+- est_value: used market value USD, number only, default 1.
+- replacement_value: retail price USD, number only, default 1.
+- prompt_serial: true for electronics/appliances/jewelry/instruments only.
+- confidence: high/medium/low.
+- Return ONLY valid JSON. No other text.`;
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).end();
 
   try {
+    // Collect raw body as Buffer
     const chunks: Buffer[] = [];
     await new Promise<void>((resolve, reject) => {
       req.on('data', (chunk: Buffer) => chunks.push(chunk));
       req.on('end', resolve);
       req.on('error', reject);
     });
+    const rawBody = Buffer.concat(chunks);
 
-    const body = Buffer.concat(chunks);
+    // Extract boundary
     const contentType = req.headers['content-type'] || '';
-
-    const bodyStr = body.toString('binary');
-    const boundaryMatch = contentType.match(/boundary=(.+)/);
+    const boundaryMatch = contentType.match(/boundary=([^\s;]+)/);
     if (!boundaryMatch) {
-      console.error('No boundary found in content-type:', contentType);
+      console.error('No boundary');
+      return res.status(200).json({ error: true });
+    }
+    const boundary = Buffer.from(`--${boundaryMatch[1]}`);
+
+    // Split on boundary
+    const parts: Buffer[] = [];
+    let start = 0;
+    while (start < rawBody.length) {
+      const idx = rawBody.indexOf(boundary, start);
+      if (idx === -1) break;
+      const partStart = idx + boundary.length;
+      const nextIdx = rawBody.indexOf(boundary, partStart);
+      if (nextIdx === -1) break;
+      parts.push(rawBody.slice(partStart, nextIdx));
+      start = nextIdx;
+    }
+
+    // Find image part
+    let imageBuffer: Buffer | null = null;
+    let imageMime = 'image/jpeg';
+    for (const part of parts) {
+      const partStr = part.slice(0, 200).toString('utf8');
+      if (partStr.includes('Content-Type: image/')) {
+        const mimeMatch = partStr.match(/Content-Type: (image\/[^\r\n]+)/);
+        if (mimeMatch) imageMime = mimeMatch[1].trim();
+        // Find double CRLF separator between headers and body
+        const separator = Buffer.from('\r\n\r\n');
+        const sepIdx = part.indexOf(separator);
+        if (sepIdx !== -1) {
+          // Remove trailing \r\n
+          imageBuffer = part.slice(sepIdx + 4, part.length - 2);
+        }
+        break;
+      }
+    }
+
+    if (!imageBuffer || imageBuffer.length === 0) {
+      console.error('No image buffer extracted');
       return res.status(200).json({ error: true });
     }
 
-    const boundary = boundaryMatch[1];
-    const parts = bodyStr.split(`--${boundary}`);
-    const imagePart = parts.find(p => p.includes('Content-Type: image/'));
-    if (!imagePart) {
-      console.error('No image part found. Parts:', parts.length);
-      return res.status(200).json({ error: true });
-    }
+    const base64Image = imageBuffer.toString('base64');
+    console.log('Image size:', imageBuffer.length, 'MIME:', imageMime);
 
-    const imageContentTypeMatch = imagePart.match(/Content-Type: (image\/\w+)/);
-    const imageContentType = imageContentTypeMatch?.[1] || 'image/jpeg';
-    const imageData = imagePart.split('\r\n\r\n').slice(1).join('\r\n\r\n').replace(/\r\n--$/, '');
-    const base64Image = Buffer.from(imageData, 'binary').toString('base64');
-
-    console.log('Image extracted, size:', base64Image.length, 'type:', imageContentType);
-
-    const requestBody = {
-      system_instruction: { parts: [{ text: SYSTEM_PROMPT }] },
-      contents: [{
-        parts: [
-          { text: 'Analyze this household item image and return the JSON object.' },
-          { inline_data: { mime_type: imageContentType, data: base64Image } }
-        ]
-      }],
-      generation_config: { temperature: 0.1, max_output_tokens: 512 }
-    };
-
-    const geminiResponse = await fetch(
+    const geminiRes = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(requestBody)
+        body: JSON.stringify({
+          system_instruction: { parts: [{ text: SYSTEM_PROMPT }] },
+          contents: [{
+            parts: [
+              { text: 'Identify this household item and return only the JSON.' },
+              { inline_data: { mime_type: imageMime, data: base64Image } }
+            ]
+          }],
+          generation_config: { temperature: 0.1, max_output_tokens: 512 }
+        })
       }
     );
 
-    const responseText = await geminiResponse.text();
-    console.log('Gemini status:', geminiResponse.status);
-    console.log('Gemini response:', responseText.substring(0, 500));
+    const responseText = await geminiRes.text();
+    console.log('Gemini HTTP status:', geminiRes.status);
+    console.log('Gemini response preview:', responseText.substring(0, 300));
 
     const geminiData = JSON.parse(responseText);
     const text = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text || '';
-    console.log('Extracted text:', text);
+    console.log('AI text:', text);
 
     const clean = text.replace(/```json|```/g, '').trim();
     const parsed = JSON.parse(clean);
-
     res.status(200).json(parsed);
   } catch (e: any) {
-    console.error('analyze-item error:', e.message);
+    console.error('analyze-item error:', e.message, e.stack?.substring(0, 200));
     res.status(200).json({ error: true });
   }
 }
