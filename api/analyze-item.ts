@@ -88,14 +88,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
           contents: [{
             parts: [
-              { text: 'Identify this household item and return only the JSON.' },
+              { text: `${SYSTEM_PROMPT}\n\nIdentify this household item and return only the JSON.` },
               { inline_data: { mime_type: imageMime, data: base64Image } }
             ]
           }],
-          generation_config: { temperature: 0.1, max_output_tokens: 512 }
+          generationConfig: { temperature: 0.1, maxOutputTokens: 512 }
         })
       }
     );
