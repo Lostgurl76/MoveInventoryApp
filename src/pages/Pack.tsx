@@ -587,12 +587,12 @@ const Pack = () => {
                       <input id="retake-input" type="file" accept="image/*" capture="environment" className="hidden" onChange={handlePhotoCapture} />
                     </div>
                   ) : (
-                    <label htmlFor="camera-input" className="flex items-center justify-center gap-3 h-14 bg-[#EEE9FF] rounded-[14px] cursor-pointer active:opacity-80 transition-opacity border-2 border-dashed border-[#6D4CFF]/30">
+                    <label className="flex items-center justify-center gap-3 h-14 bg-[#EEE9FF] rounded-[14px] cursor-pointer active:opacity-80 transition-opacity border-2 border-dashed border-[#6D4CFF]/30">
                       <Camera size={22} className="text-[#6D4CFF]" />
                       <span className="text-[15px] font-semibold text-[#6D4CFF]">Take photo to auto-fill</span>
+                      <input type="file" accept="image/*" capture="environment" onChange={handlePhotoCapture} style={{ position: 'fixed', top: '-100px', left: '-100px', width: '1px', height: '1px', opacity: 0 }} />
                     </label>
                   )}
-                  <input id="camera-input" type="file" accept="image/*" capture="environment" className="hidden" onChange={handlePhotoCapture} />
 
                   {confidence === 'low' && !aiLoading && (
                     <div className="bg-[#FEF3C7] border border-[#F59E0B]/20 p-3 rounded-[12px]">
