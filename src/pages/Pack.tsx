@@ -15,6 +15,7 @@ const Pack = () => {
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const itemNameInputRef = useRef<HTMLInputElement>(null);
+  const photoInputRef = useRef<HTMLInputElement>(null);
   
   const [appState, setAppState] = useState<AppState>('NO_ACTIVE_BOX');
   const [session, setSession] = useState<ActiveBoxSession | null>(null);
@@ -47,6 +48,14 @@ const Pack = () => {
     item_notes: '',
     image: ''
   });
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState('');
+  const [confidence, setConfidence] = useState<'high' | 'medium' | 'low' | null>(null);
+  const [capturedPhoto, setCapturedPhoto] = useState<File | null>(null);
+  const [photoPreviewUrl, setPhotoPreviewUrl] = useState<string>('');
+  const [promptSerial, setPromptSerial] = useState(false);
+  const [replacementValue, setReplacementValue] = useState<number | ''>('');
+  const [showAbandon, setShowAbandon] = useState(false);
 
   // Persistence & Resume
   useEffect(() => {
@@ -168,6 +177,85 @@ const Pack = () => {
     setUploading(false);
   };
 
+  const handlePhotoCapture = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setCapturedPhoto(file);
+    setPhotoPreviewUrl(URL.createObjectURL(file));
+    setAiLoading(true);
+    setAiError('');
+    setConfidence(null);
+    setShowAbandon(true);
+
+    try {
+      const formData = new FormData();
+      formData.append('image', file);
+
+      const response = await fetch('/api/analyze-item', {
+        method: 'POST',
+        body: formData
+      });
+
+      const data = await response.json();
+
+      if (data.error) throw new Error('AI unavailable');
+
+      setItemForm(prev => ({
+        ...prev,
+        item_name: data.item_name || '',
+        item_type: (data.item_type || prev.item_type) as ItemType,
+        description: data.description || '',
+        est_value: data.est_value ? String(data.est_value) : ''
+      }));
+      setReplacementValue(data.replacement_value || '');
+      setPromptSerial(data.prompt_serial || false);
+      setConfidence(data.confidence || 'low');
+    } catch {
+      setAiError('AI unavailable — enter details manually');
+    } finally {
+      setAiLoading(false);
+      if (e.target) e.target.value = '';
+    }
+  };
+
+  const handleSerialPhotoCapture = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const formData = new FormData();
+      formData.append('image', file);
+      const response = await fetch('/api/analyze-serial', { method: 'POST', body: formData });
+      const data = await response.json();
+      if (data.serial_number) {
+        setItemForm(prev => ({ ...prev, serial_number: data.serial_number }));
+      }
+    } catch {}
+
+    if (e.target) e.target.value = '';
+  };
+
+  const handleAbandon = () => {
+    setCapturedPhoto(null);
+    setPhotoPreviewUrl('');
+    setConfidence(null);
+    setPromptSerial(false);
+    setReplacementValue('');
+    setShowAbandon(false);
+    setAiError('');
+    setItemForm({
+      item_name: '',
+      count: 1,
+      item_type: 'Misc.' as ItemType,
+      description: '',
+      serial_number: '',
+      est_value: '',
+      item_notes: '',
+      image: ''
+    });
+  };
+
   const updateLabelStatus = (status: LabelStatus) => {
     if (!session) return;
     const nextState: AppState = (status === 'PRINTED_CONFIRMED' || status === 'SKIPPED') 
@@ -191,6 +279,7 @@ const Pack = () => {
         description: itemForm.description,
         serial_number: itemForm.serial_number,
         est_value: itemForm.est_value ? parseFloat(itemForm.est_value) : null,
+        replacement_value: replacementValue || null,
         item_notes: itemForm.item_notes,
         image: itemForm.image,
         box_id: session.id,
@@ -213,6 +302,13 @@ const Pack = () => {
         item_notes: '',
         image: ''
       }));
+      setReplacementValue('');
+      setCapturedPhoto(null);
+      setPhotoPreviewUrl('');
+      setConfidence(null);
+      setPromptSerial(false);
+      setShowAbandon(false);
+      setAiError('');
       setIsExpanded(false);
       showSuccess('Item added');
       
@@ -397,7 +493,6 @@ const Pack = () => {
                     <LocationBadge location={session?.location || 'Unassigned'} />
                     <span className="text-[11px] font-semibold text-[#5F5A72] uppercase tracking-wider">{session?.room}</span>
                   </div>
-                  
                   <div className="flex flex-col items-center">
                     <span className="text-[13px] font-medium text-[#8B849E]">Box #</span>
                     <span className="text-[52px] font-black text-[#17142A] leading-none">{session?.box_number}</span>
@@ -474,6 +569,50 @@ const Pack = () => {
               appState === 'ACTIVE_BOX_LABEL_PENDING' && "opacity-60 pointer-events-none grayscale-[0.5]"
             )}>
               <form onSubmit={handleAddItem} className="space-y-4">
+                <div className="space-y-3">
+                  {capturedPhoto && photoPreviewUrl ? (
+                    <div className="relative">
+                      <img src={photoPreviewUrl} className="w-full h-40 object-cover rounded-[12px]" alt="Captured item" />
+                      {aiLoading && (
+                        <div className="absolute inset-0 bg-black/50 rounded-[12px] flex flex-col items-center justify-center gap-2">
+                          <Loader2 size={28} className="text-white animate-spin" />
+                          <p className="text-white text-[13px] font-medium">Analyzing item...</p>
+                        </div>
+                      )}
+                      {!aiLoading && (
+                        <label htmlFor="retake-input" className="absolute bottom-2 right-2 bg-black/60 text-white text-[12px] px-3 py-1.5 rounded-full cursor-pointer active:opacity-70">
+                          Retake
+                        </label>
+                      )}
+                      <input id="retake-input" type="file" accept="image/*" capture="environment" className="hidden" onChange={handlePhotoCapture} />
+                    </div>
+                  ) : (
+                    <label htmlFor="camera-input" onClick={() => photoInputRef.current?.click()} className="flex items-center justify-center gap-3 h-14 bg-[#EEE9FF] rounded-[14px] cursor-pointer active:opacity-80 transition-opacity border-2 border-dashed border-[#6D4CFF]/30">
+                      <Camera size={22} className="text-[#6D4CFF]" />
+                      <span className="text-[15px] font-semibold text-[#6D4CFF]">Take photo to auto-fill</span>
+                    </label>
+                  )}
+                  <input id="camera-input" ref={photoInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handlePhotoCapture} />
+
+                  {confidence === 'low' && !aiLoading && (
+                    <div className="bg-[#FEF3C7] border border-[#F59E0B]/20 p-3 rounded-[12px]">
+                      <p className="text-[13px] text-[#92400E] font-medium">⚠ AI couldn't confidently identify this item — please review all fields</p>
+                    </div>
+                  )}
+                  {confidence === 'medium' && !aiLoading && (
+                    <div className="flex items-center gap-2 px-1">
+                      <div className="w-2 h-2 rounded-full bg-[#F59E0B]" />
+                      <p className="text-[12px] text-[#92400E]">AI is moderately confident — verify the item name</p>
+                    </div>
+                  )}
+
+                  {aiError && (
+                    <div className="bg-[#FFE4E6] p-3 rounded-[12px]">
+                      <p className="text-[13px] text-[#9F1239]">{aiError}</p>
+                    </div>
+                  )}
+                </div>
+
                 <div className="flex gap-3">
                   <div className="flex-1">
                     <label className="text-[13px] font-medium text-[#5F5A72] mb-1.5 block">Item Name</label>
@@ -560,20 +699,49 @@ const Pack = () => {
                         onChange={e => setItemForm({ ...itemForm, description: e.target.value })}
                         className="w-full p-4 rounded-[12px] border border-[#E6E0F0] outline-none min-h-[80px]"
                       />
+
+                      {promptSerial && (
+                        <div className="bg-[#EEE9FF] p-4 rounded-[14px] space-y-3 border border-[#6D4CFF]/20">
+                          <p className="text-[13px] font-semibold text-[#4B2FBF]">Serial number recommended for customs and insurance</p>
+                          <input
+                            value={itemForm.serial_number || ''}
+                            onChange={e => { setItemForm(prev => ({ ...prev, serial_number: e.target.value })); setConfidence(null); }}
+                            placeholder="Type serial number"
+                            className="w-full h-12 px-4 rounded-[12px] border border-[#E6E0F0] focus:border-[#6D4CFF] outline-none text-[16px] bg-white"
+                          />
+                          <div className="flex gap-2">
+                            <label htmlFor="serial-photo-input" className="flex-1 h-10 bg-white border border-[#6D4CFF] text-[#6D4CFF] rounded-[10px] flex items-center justify-center gap-2 text-[13px] font-semibold cursor-pointer active:opacity-70">
+                              <Camera size={16} /> Scan serial number
+                            </label>
+                            <button type="button" onClick={() => setPromptSerial(false)} className="px-4 h-10 text-[13px] text-[#8B849E] active:opacity-70">Skip</button>
+                          </div>
+                          <input id="serial-photo-input" type="file" accept="image/*" capture="environment" className="hidden" onChange={handleSerialPhotoCapture} />
+                        </div>
+                      )}
+
                       <div className="grid grid-cols-2 gap-3">
-                        <input 
-                          placeholder="Est. Value ($)"
-                          type="number"
-                          value={itemForm.est_value}
-                          onChange={e => setItemForm({ ...itemForm, est_value: e.target.value })}
-                          className="w-full h-12 px-4 rounded-[12px] border border-[#E6E0F0] outline-none"
-                        />
-                        <input 
-                          placeholder="Serial #"
-                          value={itemForm.serial_number}
-                          onChange={e => setItemForm({ ...itemForm, serial_number: e.target.value })}
-                          className="w-full h-12 px-4 rounded-[12px] border border-[#E6E0F0] outline-none"
-                        />
+                        <div>
+                          <label className="text-[13px] font-medium text-[#5F5A72] mb-1.5 block">Est. value (USD)</label>
+                          <input 
+                            placeholder="0.00"
+                            type="number"
+                            inputMode="decimal"
+                            value={itemForm.est_value}
+                            onChange={e => setItemForm({ ...itemForm, est_value: e.target.value })}
+                            className="w-full h-12 px-4 rounded-[12px] border border-[#E6E0F0] outline-none"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[13px] font-medium text-[#5F5A72] mb-1.5 block">Replacement value (USD)</label>
+                          <input
+                            type="number"
+                            inputMode="decimal"
+                            value={replacementValue}
+                            onChange={e => setReplacementValue(e.target.value === '' ? '' : parseFloat(e.target.value))}
+                            placeholder="0.00"
+                            className="w-full h-12 px-4 rounded-[12px] border border-[#E6E0F0] focus:border-[#6D4CFF] outline-none text-[16px]"
+                          />
+                        </div>
                       </div>
                       <textarea 
                         placeholder="Notes"
@@ -585,13 +753,24 @@ const Pack = () => {
                   )}
                 </AnimatePresence>
 
-                <button 
-                  type="submit"
-                  disabled={loading || !itemForm.item_name}
-                  className="w-full h-12 bg-[#6D4CFF] text-white rounded-[14px] font-semibold active:scale-95 transition-transform flex items-center justify-center gap-2"
-                >
-                  {loading ? <Loader2 className="animate-spin" size={20} /> : <><Plus size={20} /> Add Item</>}
-                </button>
+                {showAbandon ? (
+                  <div className="grid grid-cols-2 gap-3">
+                    <button type="button" onClick={handleAbandon} className="h-14 bg-white border-2 border-[#F43F5E] text-[#F43F5E] rounded-[16px] font-semibold active:scale-95 transition-transform">
+                      Abandon Item
+                    </button>
+                    <button type="submit" disabled={!itemForm.item_name || loading} className="h-14 bg-[#6D4CFF] text-white rounded-[16px] font-semibold active:scale-95 transition-transform disabled:bg-[#DCD6F5] flex items-center justify-center gap-2">
+                      {loading ? <Loader2 className="animate-spin" size={20} /> : 'Save Item'}
+                    </button>
+                  </div>
+                ) : (
+                  <button 
+                    type="submit"
+                    disabled={loading || !itemForm.item_name}
+                    className="w-full h-12 bg-[#6D4CFF] text-white rounded-[14px] font-semibold active:scale-95 transition-transform flex items-center justify-center gap-2"
+                  >
+                    {loading ? <Loader2 className="animate-spin" size={20} /> : <><Plus size={20} /> Add Item</>}
+                  </button>
+                )}
               </form>
             </div>
 
