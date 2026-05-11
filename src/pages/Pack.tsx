@@ -188,35 +188,44 @@ const Pack = () => {
     setConfidence(null);
     setShowAbandon(true);
 
-    try {
-      const formData = new FormData();
-      formData.append('image', file);
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = async () => {
+      const dataUrl = reader.result as string;
+      const base64Image = dataUrl.split(',')[1];
+      const imageMime = file.type;
 
-      const response = await fetch('/api/analyze-item', {
-        method: 'POST',
-        body: formData
-      });
+      try {
+        const response = await fetch('/api/analyze-item', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ base64Image, imageMime })
+        });
 
-      const data = await response.json();
+        const data = await response.json();
+        if (data.error) throw new Error('AI unavailable');
 
-      if (data.error) throw new Error('AI unavailable');
-
-      setItemForm(prev => ({
-        ...prev,
-        item_name: data.item_name || '',
-        item_type: (data.item_type || prev.item_type) as ItemType,
-        description: data.description || '',
-        est_value: data.est_value ? String(data.est_value) : ''
-      }));
-      setReplacementValue(data.replacement_value || '');
-      setPromptSerial(data.prompt_serial || false);
-      setConfidence(data.confidence || 'low');
-    } catch {
-      setAiError('AI unavailable — enter details manually');
-    } finally {
+        setItemForm(prev => ({
+          ...prev,
+          item_name: data.item_name || '',
+          item_type: (data.item_type || prev.item_type) as ItemType,
+          description: data.description || '',
+          est_value: data.est_value ? String(data.est_value) : ''
+        }));
+        setReplacementValue(data.replacement_value || '');
+        setPromptSerial(data.prompt_serial || false);
+        setConfidence(data.confidence || 'low');
+      } catch {
+        setAiError('AI unavailable — enter details manually');
+      } finally {
+        setAiLoading(false);
+        if (e.target) e.target.value = '';
+      }
+    };
+    reader.onerror = () => {
+      setAiError('Could not read image');
       setAiLoading(false);
-      if (e.target) e.target.value = '';
-    }
+    };
   };
 
   const handleSerialPhotoCapture = async (e: React.ChangeEvent<HTMLInputElement>) => {
