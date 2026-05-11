@@ -1,62 +1,117 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+
 export const config = { api: { bodyParser: false } };
+
 const ITEM_TYPES = ['Cleaning', 'Clothing', 'Cookware', 'Crafts', 'Decor', 'Electronics', 'Food', 'Furniture', 'Jewelry', 'Keepsakes', 'Misc.', 'Puppers', 'Soft Goods', 'Toiletries', 'Utility'];
 const ROOMS = ['Bathroom', 'Bedroom', 'Dining', 'Garage', 'General', 'Hobby', 'Living Room', 'Kitchen', 'Office', 'Pantry', 'Patio', 'Puppers', 'Storage'];
-const SYSTEM_PROMPT = `You are an AI assistant helping catalog household items for an international move. Analyze the provided image and return ONLY a valid JSON object with no other text.
-Return exactly this structure:
-{"item_name":"name","item_type":"type","room":"room","description":"fragment description","est_value":1,"replacement_value":1,"prompt_serial":false,"confidence":"high"}
-Rules:
-- item_type: use one of: ${ITEM_TYPES.join(', ')}. If none fit, use a 1-2 word category.
-- room: use one of: ${ROOMS.join(', ')}
-- description: fragment style, no full sentences.
-- est_value: used market value USD, number only, default 1.
-- replacement_value: retail price USD, number only, default 1.
-- prompt_serial: true for electronics/appliances/jewelry/instruments only.
-- confidence: high/medium/low.
-- Return ONLY valid JSON. No other text.`;
+
+const PROMPT = `Analyze this household item image. Return ONLY a JSON object, no markdown, no code fences, no explanation.
+
+{"item_name":"name","item_type":"type","room":"room","description":"fragment","est_value":1,"replacement_value":1,"prompt_serial":false,"confidence":"high"}
+
+item_type options: ${ITEM_TYPES.join(', ')} — or a 1-2 word category if none fit
+room options: ${ROOMS.join(', ')}
+description: fragment style, e.g. "Ceramic mug, Stranger Things design."
+est_value: used market value USD, number
+replacement_value: retail price USD, number
+prompt_serial: true only for electronics/appliances/jewelry/instruments
+confidence: high/medium/low
+Books: item_name = title, description = "Book by Author."
+Return ONLY the raw JSON object. No markdown. No backticks. No explanation.`;
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+  if (req.method !== 'POST') return res.status(405).end();
+
   try {
     const chunks: Buffer[] = [];
-    for await (const chunk of req) chunks.push(chunk as Buffer);
-    const body = JSON.parse(Buffer.concat(chunks).toString());
-    const { base64Image, imageMime } = body;
-    if (!base64Image || !imageMime) return res.status(400).json({ error: 'Missing image data' });
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
+    await new Promise<void>((resolve, reject) => {
+      req.on('data', (chunk: Buffer) => chunks.push(chunk));
+      req.on('end', resolve);
+      req.on('error', reject);
+    });
+    const rawBody = Buffer.concat(chunks);
+    const contentType = req.headers['content-type'] || '';
+
+    const boundaryMatch = contentType.match(/boundary=([^\s;]+)/);
+    if (!boundaryMatch) return res.status(200).json({ error: true });
+    const boundary = Buffer.from(`--${boundaryMatch[1]}`);
+
+    const parts: Buffer[] = [];
+    let start = 0;
+    while (start < rawBody.length) {
+      const idx = rawBody.indexOf(boundary, start);
+      if (idx === -1) break;
+      const partStart = idx + boundary.length;
+      const nextIdx = rawBody.indexOf(boundary, partStart);
+      if (nextIdx === -1) break;
+      parts.push(rawBody.slice(partStart, nextIdx));
+      start = nextIdx;
+    }
+
+    let imageBuffer: Buffer | null = null;
+    let imageMime = 'image/jpeg';
+    for (const part of parts) {
+      const partStr = part.slice(0, 300).toString('utf8');
+      if (partStr.includes('Content-Type: image/')) {
+        const mimeMatch = partStr.match(/Content-Type: (image\/[^\r\n]+)/);
+        if (mimeMatch) imageMime = mimeMatch[1].trim();
+        const separator = Buffer.from('\r\n\r\n');
+        const sepIdx = part.indexOf(separator);
+        if (sepIdx !== -1) imageBuffer = part.slice(sepIdx + 4, part.length - 2);
+        break;
+      }
+    }
+
+    if (!imageBuffer || imageBuffer.length === 0) {
+      console.error('No image extracted');
+      return res.status(200).json({ error: true });
+    }
+
+    const base64Image = imageBuffer.toString('base64');
+    console.log('Image size:', imageBuffer.length, 'MIME:', imageMime);
+
+    const geminiRes = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           contents: [{
             parts: [
-              { text: `${SYSTEM_PROMPT}\n\nIdentify this household item and return only the JSON.` },
+              { text: PROMPT },
               { inline_data: { mime_type: imageMime, data: base64Image } }
             ]
           }],
-          generationConfig: { temperature: 0.1, maxOutputTokens: 512 }
+          generation_config: { temperature: 0.1, max_output_tokens: 512 }
         })
       }
     );
-    if (!response.ok) {
-      const err = await response.text();
-      throw new Error(`Gemini ${response.status}: ${err}`);
-    }
-    const geminiData = await response.json();
-    const text = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text || '';
-    console.log('AI text:', text);
 
-    // Strip markdown code blocks and find JSON
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
-      console.error('No JSON found in response:', text);
+    const responseText = await geminiRes.text();
+    console.log('Gemini status:', geminiRes.status);
+
+    if (!geminiRes.ok) {
+      console.error('Gemini error:', responseText.substring(0, 200));
       return res.status(200).json({ error: true });
     }
+
+    const geminiData = JSON.parse(responseText);
+    const text = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    console.log('AI text:', text.substring(0, 200));
+
+    // Extract JSON — handle markdown wrapping, extra text, anything
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      console.error('No JSON in response');
+      return res.status(200).json({ error: true });
+    }
+
     const parsed = JSON.parse(jsonMatch[0]);
-    return res.status(200).json(parsed);
+    console.log('Parsed successfully:', parsed.item_name);
+    res.status(200).json(parsed);
 
   } catch (e: any) {
     console.error('analyze-item error:', e.message);
-    return res.status(500).json({ error: e.message });
+    res.status(200).json({ error: true });
   }
 }
