@@ -3,6 +3,10 @@ import { VercelRequest, VercelResponse } from '@vercel/node';
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).end();
 
+  console.log('Request body keys:', Object.keys(req.body || {}));
+  console.log('base64Image present:', !!req.body?.base64Image);
+  console.log('Content-Type:', req.headers['content-type']);
+
   const { base64Image, imageMime } = req.body;
 
   if (!base64Image) {
