@@ -44,7 +44,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               { inline_data: { mime_type: mimeType, data: base64Image } }
             ]
           }],
-          generation_config: { temperature: 0, max_output_tokens: 256 }
+          generation_config: { temperature: 0, max_output_tokens: 1024 }
         })
       }
     );
