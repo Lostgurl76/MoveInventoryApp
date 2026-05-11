@@ -178,54 +178,93 @@ const Pack = () => {
   };
 
   const handlePhotoCapture = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (aiLoading) return;
+
     const file = e.target.files?.[0];
     if (!file) return;
 
-    setCapturedPhoto(file);
     setPhotoPreviewUrl(URL.createObjectURL(file));
     setAiLoading(true);
     setAiError('');
     setConfidence(null);
     setShowAbandon(true);
 
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
-    reader.onload = async () => {
-      const dataUrl = reader.result as string;
-      const base64Image = dataUrl.split(',')[1];
-      const imageMime = file.type;
+    try {
+      // Resize client-side before upload to reduce storage and transfer size
+      const resizedFile = await new Promise<File>((resolve, reject) => {
+        const img = new Image();
+        const objectUrl = URL.createObjectURL(file);
+        img.onload = () => {
+          URL.revokeObjectURL(objectUrl);
+          const maxDim = 1024;
+          const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+          const canvas = document.createElement('canvas');
+          canvas.width = Math.round(img.width * scale);
+          canvas.height = Math.round(img.height * scale);
+          const ctx = canvas.getContext('2d');
+          if (!ctx) return reject(new Error('Canvas context unavailable'));
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          canvas.toBlob(
+            (blob) => {
+              if (!blob) return reject(new Error('Canvas toBlob failed'));
+              resolve(new File([blob], 'item.jpg', { type: 'image/jpeg' }));
+            },
+            'image/jpeg',
+            0.85
+          );
+        };
+        img.onerror = reject;
+        img.src = objectUrl;
+      });
 
-      try {
-        const response = await fetch('/api/analyze-item', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ base64Image, imageMime })
-        });
+      // Upload resized image to Supabase — this URL is both stored on the item record AND sent to Gemini
+      const uploadedUrl = await uploadItemImage(resizedFile);
+      if (!uploadedUrl) {
+        setAiError('Upload failed — enter details manually');
+        setAiLoading(false);
+        if (e.target) e.target.value = '';
+        return;
+      }
 
-        const data = await response.json();
-        if (data.error) throw new Error('AI unavailable');
+      // Set image on form immediately so it is saved with the item regardless of AI outcome
+      setItemForm(prev => ({ ...prev, image: uploadedUrl }));
+      setCapturedPhoto(resizedFile);
 
+      // If user had a previous photo from a prior capture in this session, the new uploadedUrl
+      // already overwrites itemForm.image above — no orphan risk from retake at this point
+      // because the item has not been saved yet and only one URL is held in form state at a time.
+
+      const response = await fetch('/api/analyze-item', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ imageUrl: uploadedUrl, imageMime: 'image/jpeg' })
+      });
+
+      const data = await response.json();
+
+      if (data.error) {
+        setAiError('AI unavailable — enter details manually');
+      } else {
+        const validTypes = ['Cleaning','Clothing','Cookware','Crafts','Decor','Electronics','Food','Furniture','Jewelry','Keepsakes','Misc.','Puppers','Soft Goods','Toiletries','Utility'];
         setItemForm(prev => ({
           ...prev,
           item_name: data.item_name || '',
-          item_type: (data.item_type || prev.item_type) as ItemType,
+          item_type: validTypes.includes(data.item_type) ? data.item_type as ItemType : prev.item_type,
           description: data.description || '',
-          est_value: data.est_value ? String(data.est_value) : ''
+          est_value: data.est_value && data.est_value > 0 ? String(data.est_value) : ''
         }));
-        setReplacementValue(data.replacement_value || '');
-        setPromptSerial(data.prompt_serial || false);
-        setConfidence(data.confidence || 'low');
-      } catch {
-        setAiError('AI unavailable — enter details manually');
-      } finally {
-        setAiLoading(false);
-        if (e.target) e.target.value = '';
+        if (data.replacement_value && typeof data.replacement_value === 'number' && data.replacement_value > 0) {
+          setReplacementValue(data.replacement_value);
+        }
+        if (data.prompt_serial === true) setPromptSerial(true);
+        if (['high','medium','low'].includes(data.confidence)) setConfidence(data.confidence);
       }
-    };
-    reader.onerror = () => {
-      setAiError('Could not read image');
+    } catch {
+      setAiError('AI unavailable — enter details manually');
+    } finally {
       setAiLoading(false);
-    };
+      if (e.target) e.target.value = '';
+    }
   };
 
   const handleSerialPhotoCapture = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -233,12 +272,23 @@ const Pack = () => {
     if (!file) return;
 
     try {
-      const formData = new FormData();
-      formData.append('image', file);
-      const response = await fetch('/api/analyze-serial', { method: 'POST', body: formData });
+      const uploadedUrl = await uploadItemImage(file);
+      if (!uploadedUrl) return;
+
+      const response = await fetch('/api/analyze-serial', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ imageUrl: uploadedUrl, imageMime: file.type || 'image/jpeg' })
+      });
       const data = await response.json();
       if (data.serial_number) {
         setItemForm(prev => ({ ...prev, serial_number: data.serial_number }));
+      }
+
+      // Clean up serial scan image from storage — it is not stored on the item record
+      const path = uploadedUrl.split('/item-images/')[1];
+      if (path) {
+        supabase.storage.from('item-images').remove([decodeURIComponent(path)]);
       }
     } catch {}
 
@@ -246,6 +296,13 @@ const Pack = () => {
   };
 
   const handleAbandon = () => {
+    if (itemForm.image) {
+      const path = itemForm.image.split('/item-images/')[1];
+      if (path) {
+        supabase.storage.from('item-images').remove([decodeURIComponent(path)]);
+      }
+    }
+
     setCapturedPhoto(null);
     setPhotoPreviewUrl('');
     setConfidence(null);
