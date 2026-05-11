@@ -1,117 +1,81 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { VercelRequest, VercelResponse } from '@vercel/node';
+import Busboy from 'busboy';
 
 export const config = { api: { bodyParser: false } };
 
-const ITEM_TYPES = ['Cleaning', 'Clothing', 'Cookware', 'Crafts', 'Decor', 'Electronics', 'Food', 'Furniture', 'Jewelry', 'Keepsakes', 'Misc.', 'Puppers', 'Soft Goods', 'Toiletries', 'Utility'];
-const ROOMS = ['Bathroom', 'Bedroom', 'Dining', 'Garage', 'General', 'Hobby', 'Living Room', 'Kitchen', 'Office', 'Pantry', 'Patio', 'Puppers', 'Storage'];
-
-const PROMPT = `Analyze this household item image. Return ONLY a JSON object, no markdown, no code fences, no explanation.
-
-{"item_name":"name","item_type":"type","room":"room","description":"fragment","est_value":1,"replacement_value":1,"prompt_serial":false,"confidence":"high"}
-
-item_type options: ${ITEM_TYPES.join(', ')} — or a 1-2 word category if none fit
-room options: ${ROOMS.join(', ')}
-description: fragment style, e.g. "Ceramic mug, Stranger Things design."
-est_value: used market value USD, number
-replacement_value: retail price USD, number
-prompt_serial: true only for electronics/appliances/jewelry/instruments
-confidence: high/medium/low
-Books: item_name = title, description = "Book by Author."
-Return ONLY the raw JSON object. No markdown. No backticks. No explanation.`;
-
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+export default function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).end();
 
-  try {
-    const chunks: Buffer[] = [];
-    await new Promise<void>((resolve, reject) => {
-      req.on('data', (chunk: Buffer) => chunks.push(chunk));
-      req.on('end', resolve);
-      req.on('error', reject);
-    });
-    const rawBody = Buffer.concat(chunks);
-    const contentType = req.headers['content-type'] || '';
+  const busboy = Busboy({ headers: req.headers });
+  const chunks: Buffer[] = [];
+  let imageMime = 'image/jpeg';
+  let gotFile = false;
 
-    const boundaryMatch = contentType.match(/boundary=([^\s;]+)/);
-    if (!boundaryMatch) return res.status(200).json({ error: true });
-    const boundary = Buffer.from(`--${boundaryMatch[1]}`);
+  busboy.on('file', (_field, stream, info) => {
+    gotFile = true;
+    imageMime = info.mimeType || 'image/jpeg';
+    stream.on('data', chunk => chunks.push(chunk));
+  });
 
-    const parts: Buffer[] = [];
-    let start = 0;
-    while (start < rawBody.length) {
-      const idx = rawBody.indexOf(boundary, start);
-      if (idx === -1) break;
-      const partStart = idx + boundary.length;
-      const nextIdx = rawBody.indexOf(boundary, partStart);
-      if (nextIdx === -1) break;
-      parts.push(rawBody.slice(partStart, nextIdx));
-      start = nextIdx;
-    }
-
-    let imageBuffer: Buffer | null = null;
-    let imageMime = 'image/jpeg';
-    for (const part of parts) {
-      const partStr = part.slice(0, 300).toString('utf8');
-      if (partStr.includes('Content-Type: image/')) {
-        const mimeMatch = partStr.match(/Content-Type: (image\/[^\r\n]+)/);
-        if (mimeMatch) imageMime = mimeMatch[1].trim();
-        const separator = Buffer.from('\r\n\r\n');
-        const sepIdx = part.indexOf(separator);
-        if (sepIdx !== -1) imageBuffer = part.slice(sepIdx + 4, part.length - 2);
-        break;
-      }
-    }
-
-    if (!imageBuffer || imageBuffer.length === 0) {
-      console.error('No image extracted');
+  busboy.on('finish', async () => {
+    if (!gotFile || chunks.length === 0) {
+      console.error('No file received');
       return res.status(200).json({ error: true });
     }
 
-    const base64Image = imageBuffer.toString('base64');
-    console.log('Image size:', imageBuffer.length, 'MIME:', imageMime);
+    const base64Image = Buffer.concat(chunks).toString('base64');
+    console.log('Image size (bytes):', Buffer.concat(chunks).length);
+    console.log('MIME type:', imageMime);
 
-    const geminiRes = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{
-            parts: [
-              { text: PROMPT },
-              { inline_data: { mime_type: imageMime, data: base64Image } }
-            ]
-          }],
-          generation_config: { temperature: 0.1, max_output_tokens: 512 }
-        })
-      }
-    );
-
-    const responseText = await geminiRes.text();
-    console.log('Gemini status:', geminiRes.status);
-
-    if (!geminiRes.ok) {
-      console.error('Gemini error:', responseText.substring(0, 200));
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      console.error('GEMINI_API_KEY not set');
       return res.status(200).json({ error: true });
     }
 
-    const geminiData = JSON.parse(responseText);
-    const text = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text || '';
-    console.log('AI text:', text.substring(0, 200));
+    try {
+      const geminiRes = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{
+              parts: [
+                { text: 'Look at this image. If there is a serial number visible, return only this JSON: {"serial_number":"value"}. If no serial number is visible, return {"serial_number":""}. No markdown. No explanation. JSON only.' },
+                { inline_data: { mime_type: imageMime, data: base64Image } }
+              ]
+            }],
+            generation_config: { temperature: 0, max_output_tokens: 64 }
+          })
+        }
+      );
 
-    // Extract JSON — handle markdown wrapping, extra text, anything
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
-      console.error('No JSON in response');
+      console.log('Gemini status:', geminiRes.status);
+      const geminiData = await geminiRes.json();
+      console.log('Gemini raw:', JSON.stringify(geminiData).slice(0, 300));
+
+      if (!geminiRes.ok) return res.status(200).json({ error: true });
+
+      const text = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      console.log('AI text:', text);
+
+      const match = text.match(/\{[\s\S]*?\}/);
+      if (!match) return res.status(200).json({ serial_number: '' });
+
+      const parsed = JSON.parse(match[0]);
+      return res.status(200).json(parsed);
+
+    } catch (e: any) {
+      console.error('Gemini fetch error:', e.message);
       return res.status(200).json({ error: true });
     }
+  });
 
-    const parsed = JSON.parse(jsonMatch[0]);
-    console.log('Parsed successfully:', parsed.item_name);
-    res.status(200).json(parsed);
+  busboy.on('error', (e: any) => {
+    console.error('Busboy error:', e.message);
+    return res.status(200).json({ error: true });
+  });
 
-  } catch (e: any) {
-    console.error('analyze-item error:', e.message);
-    res.status(200).json({ error: true });
-  }
+  req.pipe(busboy);
 }
