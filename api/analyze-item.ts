@@ -42,10 +42,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const err = await response.text();
       throw new Error(`Gemini ${response.status}: ${err}`);
     }
-    const data = await response.json();
-    const text = data.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
-    const parsed = JSON.parse(text);
+    const geminiData = await response.json();
+    const text = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    console.log('AI text:', text);
+
+    // Strip markdown code blocks and find JSON
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      console.error('No JSON found in response:', text);
+      return res.status(200).json({ error: true });
+    }
+    const parsed = JSON.parse(jsonMatch[0]);
     return res.status(200).json(parsed);
+
   } catch (e: any) {
     console.error('analyze-item error:', e.message);
     return res.status(500).json({ error: e.message });
