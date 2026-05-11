@@ -26,5 +26,5 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   );
   const data = await response.json();
   console.log('Available models:', JSON.stringify(data, null, 2));
-  res.status(200).json(data);
+  return new Response(JSON.stringify(data), { status: 200 });
 }
